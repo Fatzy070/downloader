@@ -23,6 +23,8 @@ For the full monorepo overview and frontend setup, see the [root README](../READ
 13. [Docker](#13-docker)
 14. [Deployment (Render)](#14-deployment-render)
 15. [Troubleshooting](#15-troubleshooting)
+16. [License](#16-license)
+17. [Author & Attribution](#17-author--attribution)
 
 ---
 
@@ -154,7 +156,7 @@ All supported variables are documented in [`server/.env.example`](./.env.example
 | Variable | Required | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `PORT` | No | `3001` | Port on which the Express HTTP server listens. Render sets `PORT` automatically in production. |
-| `CLIENT_ORIGIN` | No | `http://localhost:5173,https://downloader.pxxlspace.cv` | Comma-separated allowlist of permitted frontend origins for CORS. |
+| `CLIENT_ORIGIN` | No | `http://localhost:5173` | Comma-separated allowlist of permitted frontend origins for CORS. |
 | `NODE_ENV` | No | `development` | Runtime mode (`development`, `production`, or `test`). |
 | `EXTRACTION_TIMEOUT_MS` | No | `30000` | Maximum time in milliseconds allowed for `yt-dlp` metadata extraction (`POST /api/info`). |
 | `DOWNLOAD_TIMEOUT_MS` | No | `120000` | Maximum time in milliseconds allowed for streaming a media download (`GET /api/download`). |
@@ -521,3 +523,17 @@ To deploy the backend as a Docker Web Service on **Render**:
   - If an upstream platform changed its extractor layout, update `yt-dlp` locally (`curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ~/.local/bin/yt-dlp`) or trigger **Clear build cache & deploy** on Render to fetch the latest `yt-dlp` release.
 - **`504 EXTRACTION_TIMEOUT` / `504 DOWNLOAD_TIMEOUT`:**
   - Increase `EXTRACTION_TIMEOUT_MS` or `DOWNLOAD_TIMEOUT_MS` in `server/.env`. Note that free Render instances spin down after inactivity and may take 30–50 seconds to wake on the first request.
+
+---
+
+## 16. License
+
+This project is licensed under the **MIT License**. See the [LICENSE](./LICENSE) file for details.
+
+---
+
+## 17. Author & Attribution
+
+Created by **Faruk**  
+Follow my updates on X: [@fatzy_tech](https://x.com/fatzy_tech)
+
