@@ -26,6 +26,7 @@ export function resolveYtDlpBinary(): string {
   }
 
   const candidatePaths = [
+    '/opt/venv/bin/yt-dlp',
     '/usr/local/bin/yt-dlp',
     '/usr/bin/yt-dlp',
     path.join(os.homedir(), '.local', 'bin', 'yt-dlp'),
@@ -116,6 +117,28 @@ export function terminateAllActiveProcesses(): void {
 }
 
 /**
+ * Sanitizes a raw stderr string for safe server-side operational logging
+ * without exposing query tokens, credentials, or multi-line stack traces.
+ */
+function sanitizeStderrForLog(stderr: string): string {
+  return stderr
+    .replace(/https?:\/\/[^\s"'<>]+/gi, (match) => {
+      try {
+        const parsed = new URL(match);
+        return `${parsed.origin}${parsed.pathname}`;
+      } catch {
+        return '[redacted-url]';
+      }
+    })
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .slice(-4)
+    .join(' | ')
+    .slice(0, 500);
+}
+
+/**
  * Maps raw yt-dlp stderr messages into safe, user-friendly AppError instances
  * without leaking internal paths or sensitive details.
  */
@@ -136,6 +159,18 @@ export function mapExtractorStderrToAppError(stderr: string): AppError {
       'This content is private or requires platform authentication and cannot be downloaded.',
       403,
       'CONTENT_PRIVATE_OR_RESTRICTED'
+    );
+  }
+
+  if (
+    lower.includes('ip address is blocked') ||
+    lower.includes('blocked from accessing') ||
+    lower.includes('status code 10204')
+  ) {
+    return new AppError(
+      'The source platform temporarily blocked access from the server network. Please try again shortly.',
+      403,
+      'UPSTREAM_ACCESS_BLOCKED'
     );
   }
 
@@ -400,7 +435,13 @@ export async function extractMediaInfo(
 
       const stderrText = Buffer.concat(stderrChunks).toString('utf8');
       if (code !== 0) {
-        reject(mapExtractorStderrToAppError(stderrText));
+        const mappedError = mapExtractorStderrToAppError(stderrText);
+        if (process.env.NODE_ENV !== 'test') {
+          console.error(
+            `[yt-dlp:info] exited with code ${String(code)} (${mappedError.code}): ${sanitizeStderrForLog(stderrText)}`
+          );
+        }
+        reject(mappedError);
         return;
       }
 
@@ -602,7 +643,13 @@ export async function createMediaDownloadStream(
           settled = true;
           passThrough.destroy();
           if (code !== 0) {
-            reject(mapExtractorStderrToAppError(stderrText));
+            const mappedError = mapExtractorStderrToAppError(stderrText);
+            if (process.env.NODE_ENV !== 'test') {
+              console.error(
+                `[yt-dlp:download] exited with code ${String(code)} (${mappedError.code}): ${sanitizeStderrForLog(stderrText)}`
+              );
+            }
+            reject(mappedError);
           } else {
             reject(
               new AppError(

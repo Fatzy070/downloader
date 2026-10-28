@@ -13,6 +13,7 @@ import {
   isPrivateOrReservedIPv6,
   matchesDomainBoundary,
   validateAndClassifyUrl,
+  verifyNetworkSafetyAndRedirects,
 } from '../src/validators/download.validator.js';
 
 describe('URL Validation & Network Safety', () => {
@@ -111,6 +112,70 @@ describe('URL Validation & Network Safety', () => {
     expect(() => validateAndClassifyUrl('https://www.tiktok.com/')).toThrowError(
       /specific video or post/
     );
+  });
+
+  it('resolves vm.tiktok.com short links using facebookexternalhit/1.1 User-Agent and preserves short link on non-video redirects', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 301,
+          headers: {
+            location:
+              'https://www.tiktok.com/@cchhaaee111/video/7700645303124282631?_r=1&_t=ZN-9AwBQQJlb0A',
+          },
+        })
+      );
+
+    const resolved = await verifyNetworkSafetyAndRedirects(
+      'https://vm.tiktok.com/ZN8U27FNg/'
+    );
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://vm.tiktok.com/ZN8U27FNg/',
+      expect.objectContaining({
+        method: 'HEAD',
+        redirect: 'manual',
+        headers: {
+          'User-Agent': 'facebookexternalhit/1.1',
+        },
+      })
+    );
+    expect(resolved.url).toBe(
+      'https://www.tiktok.com/@cchhaaee111/video/7700645303124282631?_r=1&_t=ZN-9AwBQQJlb0A'
+    );
+    expect(resolved.platform).toBe('tiktok');
+
+    // If a datacenter edge redirects HEAD to /login or /, preserve the original vm.tiktok.com URL for yt-dlp
+    fetchSpy.mockResolvedValueOnce(
+      new Response(null, {
+        status: 302,
+        headers: {
+          location: 'https://www.tiktok.com/login?redirect_url=https%3A%2F%2Fwww.tiktok.com%2F',
+        },
+      })
+    );
+
+    const fallbackResolved = await verifyNetworkSafetyAndRedirects(
+      'https://vm.tiktok.com/ZN8U27FNg/'
+    );
+    expect(fallbackResolved.url).toBe('https://vm.tiktok.com/ZN8U27FNg/');
+    expect(fallbackResolved.platform).toBe('tiktok');
+
+    // Still block malicious SSRF redirects from short links
+    fetchSpy.mockResolvedValueOnce(
+      new Response(null, {
+        status: 302,
+        headers: {
+          location: 'https://127.0.0.1/internal',
+        },
+      })
+    );
+
+    await expect(
+      verifyNetworkSafetyAndRedirects('https://vm.tiktok.com/ZN8U27FNg/')
+    ).rejects.toThrow(/Local, private, and internal network destinations are forbidden/);
+
+    fetchSpy.mockRestore();
   });
 });
 
@@ -241,6 +306,71 @@ describe('Express API Endpoints', () => {
     expect(res.body.data.platform).toBe('x');
     expect(res.body.data.duration).toBe(45);
     expect(res.body.data.options.length).toBeGreaterThan(0);
+  });
+
+  it('POST /api/info extracts and normalizes vm.tiktok.com short-link metadata with nowatermark option', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(null, {
+        status: 301,
+        headers: {
+          location:
+            'https://www.tiktok.com/@cchhaaee111/video/7700645303124282631?_r=1&_t=ZN-9AwBQQJlb0A',
+        },
+      })
+    );
+
+    vi.spyOn(ytdlpAdapter, 'extractMediaInfo').mockResolvedValue({
+      id: '7700645303124282631',
+      title: 'BoNjOuR',
+      uploader: 'CHAE',
+      uploader_id: 'cchhaaee111',
+      duration: 15,
+      thumbnail: 'https://p16-common-sign.tiktokcdn-eu.com/tos-no1a-p-0037-no/thumb.jpg',
+      webpage_url: 'https://www.tiktok.com/@cchhaaee111/video/7700645303124282631',
+      extractor_key: 'TikTok',
+      formats: [
+        {
+          format_id: 'download',
+          format_note: 'watermarked',
+          ext: 'mp4',
+          vcodec: 'h264',
+          acodec: 'aac',
+          width: 576,
+          height: 1024,
+          filesize: 1_952_548,
+        },
+        {
+          format_id: 'h264_540p_1469362-0',
+          format_note: 'Direct video',
+          ext: 'mp4',
+          vcodec: 'h264',
+          acodec: 'aac',
+          width: 576,
+          height: 1024,
+          filesize: 2_690_580,
+        },
+      ],
+    });
+
+    const res = await request(app)
+      .post('/api/info')
+      .send({ url: 'https://vm.tiktok.com/ZN8U27FNg/' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      id: '7700645303124282631',
+      title: 'BoNjOuR',
+      platform: 'tiktok',
+      extractor: 'TikTok',
+      watermarkFreeAvailable: true,
+      resolvedUrl: 'https://www.tiktok.com/@cchhaaee111/video/7700645303124282631',
+    });
+    expect(
+      res.body.data.options.some(
+        (opt: { id: string; watermarkFree: boolean }) =>
+          opt.id === 'nowatermark' && opt.watermarkFree === true
+      )
+    ).toBe(true);
   });
 
   it('POST /api/info rejects invalid or unsupported URLs with 400', async () => {

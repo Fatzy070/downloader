@@ -281,6 +281,60 @@ export function validateAndClassifyUrl(rawUrl: string): ValidatedMediaUrl {
 }
 
 /**
+ * Checks whether a hostname + pathname represents a short-link URL that redirects to a canonical post.
+ */
+function isShortLinkUrl(parsedUrl: URL): boolean {
+  const host = parsedUrl.hostname.toLowerCase();
+  if (['vm.tiktok.com', 'vt.tiktok.com', 't.co', 'instagr.am'].includes(host)) {
+    return true;
+  }
+  if (matchesDomainBoundary(host, 'tiktok.com') && /^\/t\/[A-Za-z0-9_-]+/i.test(parsedUrl.pathname)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Checks whether a redirected TikTok URL points to a canonical media or short-link path
+ * rather than an interstitial login, challenge, or error page.
+ */
+function isCanonicalTikTokMediaPath(pathname: string): boolean {
+  return /^\/(@[^/]+\/(video|photo)\/\d+|v\/\d+|t\/[A-Za-z0-9_-]+|embed\/)/i.test(pathname);
+}
+
+/**
+ * Verifies that a hostname resolves only to public IP addresses.
+ */
+async function assertSafeDnsResolution(hostname: string): Promise<void> {
+  const cleanHost = hostname.replace(/^\[|\]$/g, '');
+  if (net.isIP(cleanHost) !== 0) {
+    return;
+  }
+
+  try {
+    const records = await dns.lookup(cleanHost, { all: true });
+    for (const record of records) {
+      const isPrivate =
+        record.family === 4
+          ? isPrivateOrReservedIPv4(record.address)
+          : isPrivateOrReservedIPv6(record.address);
+      if (isPrivate) {
+        throw new AppError(
+          'URL hostname resolves to a restricted internal network address.',
+          400,
+          'FORBIDDEN_RESOLVED_IP'
+        );
+      }
+    }
+  } catch (err) {
+    if (err instanceof AppError) {
+      throw err;
+    }
+    // If DNS lookup fails transiently, allow yt-dlp to report network error or re-check
+  }
+}
+
+/**
  * Verifies that a hostname resolves only to public IP addresses, and validates redirect hops
  * when short-links (e.g., vm.tiktok.com, t.co) or direct URLs redirect to another destination.
  */
@@ -291,40 +345,20 @@ export async function verifyNetworkSafetyAndRedirects(
   let currentValidated = validateAndClassifyUrl(initialUrl);
 
   for (let hop = 0; hop <= maxRedirects; hop++) {
-    const hostname = currentValidated.parsedUrl.hostname.replace(/^\[|\]$/g, '');
-
-    // Verify DNS resolution does not point to any private/loopback IP
-    if (net.isIP(hostname) === 0) {
-      try {
-        const records = await dns.lookup(hostname, { all: true });
-        for (const record of records) {
-          const isPrivate =
-            record.family === 4
-              ? isPrivateOrReservedIPv4(record.address)
-              : isPrivateOrReservedIPv6(record.address);
-          if (isPrivate) {
-            throw new AppError(
-              'URL hostname resolves to a restricted internal network address.',
-              400,
-              'FORBIDDEN_RESOLVED_IP'
-            );
-          }
-        }
-      } catch (err) {
-        if (err instanceof AppError) {
-          throw err;
-        }
-        // If DNS lookup fails transiently, allow yt-dlp to report network error or re-check
-      }
-    }
+    await assertSafeDnsResolution(currentValidated.parsedUrl.hostname);
 
     // Only follow pre-flight HTTP redirects for short links or direct links to verify final target safety
-    const isShortLink = ['vm.tiktok.com', 'vt.tiktok.com', 't.co', 'instagr.am'].includes(
-      hostname.toLowerCase()
-    );
+    const isShortLink = isShortLinkUrl(currentValidated.parsedUrl);
     if (!isShortLink && currentValidated.platform !== 'direct') {
       break;
     }
+
+    // Use facebookexternalhit/1.1 for TikTok short links to match yt-dlp's TikTokVMIE
+    // and avoid datacenter bot redirects to /login or homepage interstitials
+    const userAgent =
+      currentValidated.platform === 'tiktok' && isShortLink
+        ? 'facebookexternalhit/1.1'
+        : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
     try {
       const controller = new AbortController();
@@ -334,8 +368,7 @@ export async function verifyNetworkSafetyAndRedirects(
         redirect: 'manual',
         signal: controller.signal,
         headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'User-Agent': userAgent,
         },
       }).finally(() => clearTimeout(timeout));
 
@@ -345,6 +378,24 @@ export async function verifyNetworkSafetyAndRedirects(
           break;
         }
         const nextUrl = new URL(location, currentValidated.url).toString();
+
+        // If a TikTok short-link HEAD check redirects to a non-media TikTok page (e.g., /login, /404, or /),
+        // still enforce SSRF/host/platform validation on the target host, then keep the original short link
+        // so yt-dlp's TikTokVMIE extractor can resolve it directly.
+        const nextParsed = new URL(nextUrl);
+        if (
+          currentValidated.platform === 'tiktok' &&
+          nextParsed.protocol === 'https:' &&
+          !nextParsed.username &&
+          !nextParsed.password &&
+          !isDisallowedHost(nextParsed.hostname) &&
+          matchesDomainBoundary(nextParsed.hostname, 'tiktok.com') &&
+          !isCanonicalTikTokMediaPath(nextParsed.pathname)
+        ) {
+          await assertSafeDnsResolution(nextParsed.hostname);
+          break;
+        }
+
         currentValidated = validateAndClassifyUrl(nextUrl);
         continue;
       }

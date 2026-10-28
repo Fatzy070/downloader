@@ -10,20 +10,24 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
-# Stage 2: Production runtime with Python3, FFmpeg, and yt-dlp
+# Stage 2: Production runtime with Python3, FFmpeg, and yt-dlp (with curl-cffi TLS impersonation)
 FROM node:20-bookworm-slim AS runtime
 
-# Install Python 3, FFmpeg, curl, and CA certificates required by yt-dlp
+# Install Python 3, venv, FFmpeg, curl, and CA certificates required by yt-dlp
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
+    python3-venv \
     ffmpeg \
     ca-certificates \
     curl \
   && rm -rf /var/lib/apt/lists/*
 
-# Install latest stable yt-dlp release binary
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
-  && chmod a+rx /usr/local/bin/yt-dlp
+# Install yt-dlp with default extras and curl-cffi (required by TikTok extractor for browser TLS impersonation)
+RUN python3 -m venv /opt/venv \
+  && /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
+  && /opt/venv/bin/pip install --no-cache-dir "yt-dlp[default,curl-cffi]" \
+  && ln -sf /opt/venv/bin/yt-dlp /usr/local/bin/yt-dlp \
+  && chmod -R a+rX /opt/venv
 
 WORKDIR /app
 
