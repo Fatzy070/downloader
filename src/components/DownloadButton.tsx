@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle2, Download, Sparkles } from 'lucide-react';
+import { CheckCircle2, Download  } from 'lucide-react';
 import { buildDownloadUrl } from '../services/api';
 import type { DownloadOption } from '../types/downloader';
 

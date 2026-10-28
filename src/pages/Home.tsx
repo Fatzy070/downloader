@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { DownloadCloud, Moon, ShieldCheck, Sparkles, Sun, Zap } from 'lucide-react';
+import { DownloadCloud, Moon, ShieldCheck,  Sun, Zap } from 'lucide-react';
 import { Downloader } from '../components/Downloader';
 
 export const Home: React.FC = () => {
