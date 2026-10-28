@@ -40,7 +40,7 @@ Because social platforms frequently change their internal APIs, rate limits, and
 
 ### Personal Use & Open-Source License
 
-- **License:** This project is free and open-source software released under the MIT License.
+- **License:** This project is free and open-source software released under the [MIT License](./LICENSE).
 - **Responsible Use:** This tool is intended strictly for personal use (such as archiving your own content or saving publicly shared clips where permitted). Users are solely responsible for complying with applicable copyright laws, creator rights, privacy rules, and each platform's terms of service.
 
 ---
@@ -261,7 +261,7 @@ Returns server health status and `yt-dlp` version availability.
 
 ## 11. License
 
-This project is licensed under the **MIT License**.
+This project is licensed under the **MIT License**. See the [LICENSE](./LICENSE) file for details.
 
 ---
 
