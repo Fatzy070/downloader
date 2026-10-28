@@ -29,7 +29,7 @@ function sanitizeHttpsThumbnail(rawInfo: RawYtDlpInfo): string | null {
         return parsed.toString();
       }
     } catch {
-      // skip invalid URLs
+      // skip invalid URLs ok
     }
   }
 
