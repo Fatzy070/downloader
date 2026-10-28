@@ -1,6 +1,6 @@
-# PulseDL Backend (`server/`)
+# Fatzy Backend (`server/`)
 
-The Express + TypeScript backend API for **PulseDL**, responsible for validating incoming media URLs, enforcing network/SSRF safety, extracting normalized video metadata via `yt-dlp`, and streaming media directly to the client browser without buffering full files in Node.js memory.
+The Express + TypeScript backend API for **Fatzy**, responsible for validating incoming media URLs, enforcing network/SSRF safety, extracting normalized video metadata via `yt-dlp`, and streaming media directly to the client browser without buffering full files in Node.js memory.
 
 For the full monorepo overview and frontend setup, see the [root README](../README.md).
 
@@ -473,8 +473,8 @@ The backend includes a multi-stage [`Dockerfile`](./Dockerfile) based on `node:2
 From `server/`:
 
 ```bash
-docker build -t pulsedl-server .
-docker run --rm -p 3001:3001 --env-file .env pulsedl-server
+docker build -t fatzy-server .
+docker run --rm -p 3001:3001 --env-file .env fatzy-server
 ```
 
 ### Build and Run with Docker Compose
