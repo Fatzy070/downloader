@@ -22,6 +22,7 @@ export interface VideoMetadata {
   id: string;
   url: string;
   resolvedUrl?: string;
+  previewUrl?: string | null;
   title: string;
   thumbnail: string | null;
   duration: number | null;

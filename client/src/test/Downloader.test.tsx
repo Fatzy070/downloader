@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -176,5 +176,44 @@ describe('Personal Universal Video Downloader Frontend', () => {
 
     expect(input.value).toBe('');
     expect(screen.queryByTestId('video-preview-card')).not.toBeInTheDocument();
+  });
+
+  it('plays inline video preview when previewUrl is available and falls back gracefully on playback error', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'fetchVideoInfo').mockResolvedValue({
+      ...MOCK_VIDEO_METADATA,
+      platform: 'x',
+      previewUrl: 'https://video.twimg.com/ext_tw_video/123/pu/vid/720x1280/clip.mp4',
+    });
+
+    renderWithQueryClient(<Home />);
+
+    const input = screen.getByLabelText(/Media URL/i);
+    await user.type(input, 'https://x.com/nasa/status/123456');
+    await user.click(screen.getByTestId('fetch-button'));
+
+    const playBtn = await screen.findByTestId('play-preview-button');
+    expect(playBtn).toBeInTheDocument();
+
+    await user.click(playBtn);
+
+    const videoPlayer = screen.getByTestId('video-preview-player') as HTMLVideoElement;
+    expect(videoPlayer).toBeInTheDocument();
+    expect(videoPlayer).toHaveAttribute(
+      'src',
+      'https://video.twimg.com/ext_tw_video/123/pu/vid/720x1280/clip.mp4'
+    );
+    expect(videoPlayer).toHaveAttribute('controls');
+
+    // Simulate a media playback error and verify graceful fallback to thumbnail + download controls
+    fireEvent.error(videoPlayer);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('video-preview-player')).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId('preview-error-notice')).toHaveTextContent(
+      /Preview playback unavailable/i
+    );
+    expect(screen.getByTestId('download-button')).toBeInTheDocument();
   });
 });

@@ -62,6 +62,73 @@ function estimateSize(fmt?: RawYtDlpFormat, fallback?: number | null): number | 
   return null;
 }
 
+function sanitizeSafeHttpsUrl(candidate?: string | null): string | null {
+  if (!candidate || typeof candidate !== 'string') return null;
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol === 'https:' && !isDisallowedHost(parsed.hostname)) {
+      return parsed.toString();
+    }
+  } catch {
+    // ignore invalid URL
+  }
+  return null;
+}
+
+/**
+ * Selects a direct, progressive HTTPS video URL suitable for native browser <video> playback
+ * when available without session-cookie requirements or backend proxy overhead.
+ */
+function selectBrowserPlayablePreviewUrl(
+  rawInfo: RawYtDlpInfo,
+  videoFormats: RawYtDlpFormat[],
+  originalUrl: string,
+  platform: SupportedPlatform
+): string | null {
+  // TikTok CDN stream URLs require session cookies (ttwid/_wafchallengeid) and Referer headers
+  // bound to the yt-dlp process, returning 403 Forbidden if loaded directly in a browser <video>.
+  if (platform === 'tiktok') {
+    return null;
+  }
+
+  const playableCandidates = videoFormats.filter((fmt) => {
+    if (!fmt.url || fmt.cookies) return false;
+    const protocol = (fmt.protocol || 'https').toLowerCase();
+    if (protocol !== 'https' && protocol !== 'http') return false;
+
+    const ext = (fmt.ext || '').toLowerCase();
+    if (!['mp4', 'webm', 'mov'].includes(ext)) return false;
+
+    const hasVideo = Boolean(fmt.vcodec && fmt.vcodec !== 'none');
+    const hasAudio = Boolean(fmt.acodec && fmt.acodec !== 'none');
+    return hasVideo && hasAudio && Boolean(sanitizeSafeHttpsUrl(fmt.url));
+  });
+
+  if (playableCandidates.length > 0) {
+    // Prefer H.264 (avc1/h264) progressive MP4 up to 720p/1080p for fast, universal browser playback
+    const sorted = [...playableCandidates].sort((a, b) => {
+      const aH264 = /avc1|h264/i.test(a.vcodec || '') ? 1 : 0;
+      const bH264 = /avc1|h264/i.test(b.vcodec || '') ? 1 : 0;
+      if (aH264 !== bH264) return bH264 - aH264;
+      return (b.height ?? 0) - (a.height ?? 0);
+    });
+
+    return sanitizeSafeHttpsUrl(sorted[0]?.url);
+  }
+
+  if (platform === 'direct') {
+    const directCandidate = sanitizeSafeHttpsUrl(rawInfo.url) ?? sanitizeSafeHttpsUrl(originalUrl);
+    if (
+      directCandidate &&
+      /\.(mp4|webm|mov|m4v)(\?|$)/i.test(directCandidate)
+    ) {
+      return directCandidate;
+    }
+  }
+
+  return null;
+}
+
 export function normalizeMediaMetadata(
   rawInfo: RawYtDlpInfo,
   originalUrl: string,
@@ -204,10 +271,18 @@ export function normalizeMediaMetadata(
       ? Math.round(rawInfo.duration)
       : null;
 
+  const previewUrl = selectBrowserPlayablePreviewUrl(
+    rawInfo,
+    videoFormats,
+    originalUrl,
+    platform
+  );
+
   return {
     id: String(rawInfo.id || Date.now()),
     url: originalUrl,
     resolvedUrl: rawInfo.webpage_url || originalUrl,
+    previewUrl,
     title: rawTitle,
     thumbnail: sanitizeHttpsThumbnail(rawInfo),
     duration,

@@ -260,6 +260,65 @@ describe('Metadata Normalization & Watermark Handling', () => {
 
     expect(metadata.watermarkFreeAvailable).toBe(false);
     expect(metadata.options.some((o) => o.id === 'nowatermark')).toBe(false);
+    expect(metadata.previewUrl).toBeNull();
+  });
+
+  it('populates previewUrl for cookie-free progressive HTTPS MP4 streams (X, Instagram, Direct) and omits it when cookies are required', () => {
+    const xMetadata = normalizeMediaMetadata(
+      {
+        id: '1349794411333394432',
+        title: 'Nets Highlight',
+        formats: [
+          {
+            format_id: 'hls-720',
+            ext: 'mp4',
+            protocol: 'm3u8_native',
+            vcodec: 'avc1.64001f',
+            acodec: 'mp4a.40.2',
+            height: 720,
+            url: 'https://video.twimg.com/ext_tw_video/1349794411333394432/pu/pl/720x1280/playlist.m3u8',
+          },
+          {
+            format_id: 'http-832',
+            ext: 'mp4',
+            protocol: 'https',
+            vcodec: 'avc1.64001f',
+            acodec: 'mp4a.40.2',
+            height: 720,
+            url: 'https://video.twimg.com/ext_tw_video/1349794411333394432/pu/vid/720x1280/clip.mp4',
+          },
+        ],
+      },
+      'https://x.com/BrooklynNets/status/1349794411333394432',
+      'x'
+    );
+
+    expect(xMetadata.previewUrl).toBe(
+      'https://video.twimg.com/ext_tw_video/1349794411333394432/pu/vid/720x1280/clip.mp4'
+    );
+
+    const cookieBoundMetadata = normalizeMediaMetadata(
+      {
+        id: '999',
+        title: 'Cookie Bound Stream',
+        formats: [
+          {
+            format_id: 'mp4-720',
+            ext: 'mp4',
+            protocol: 'https',
+            vcodec: 'h264',
+            acodec: 'aac',
+            height: 720,
+            url: 'https://scontent.cdninstagram.com/v/clip.mp4',
+            cookies: 'sessionid=secret',
+          },
+        ],
+      },
+      'https://www.instagram.com/reel/C1234567890/',
+      'instagram'
+    );
+
+    expect(cookieBoundMetadata.previewUrl).toBeNull();
   });
 });
 

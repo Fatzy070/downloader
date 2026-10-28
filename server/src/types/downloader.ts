@@ -28,6 +28,7 @@ export interface VideoMetadata {
   id: string;
   url: string;
   resolvedUrl?: string;
+  previewUrl?: string | null;
   title: string;
   thumbnail: string | null;
   duration: number | null;
@@ -52,6 +53,7 @@ export interface RawYtDlpFormat {
   tbr?: number | null;
   protocol?: string;
   url?: string;
+  cookies?: string;
 }
 
 export interface RawYtDlpInfo {
