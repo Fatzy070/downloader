@@ -72,7 +72,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ video }) => {
       className="mt-6 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm transition-all dark:border-slate-800 dark:bg-slate-900"
     >
       <div className="grid grid-cols-1 gap-6 p-5 sm:p-6 md:grid-cols-12">
-        {/* Thumbnail / Visual Preview */}
+        
         <div className="md:col-span-5">
           <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-slate-200/60 bg-slate-100 dark:border-slate-800 dark:bg-slate-800/80">
             {video.thumbnail && !thumbnailError ? (
@@ -102,7 +102,6 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ video }) => {
           </div>
         </div>
 
-        {/* Metadata and Format Selector */}
         <div className="flex flex-col justify-between space-y-4 md:col-span-7">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
