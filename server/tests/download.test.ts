@@ -1,4 +1,5 @@
 import type { ChildProcess } from 'node:child_process';
+import dns from 'node:dns/promises';
 import { PassThrough } from 'node:stream';
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -115,6 +116,9 @@ describe('URL Validation & Network Safety', () => {
   });
 
   it('resolves vm.tiktok.com short links using facebookexternalhit/1.1 User-Agent and preserves short link on non-video redirects', async () => {
+    const dnsSpy = vi
+      .spyOn(dns, 'lookup')
+      .mockResolvedValue([{ address: '23.212.251.16', family: 4 }] as never);
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
@@ -176,6 +180,7 @@ describe('URL Validation & Network Safety', () => {
     ).rejects.toThrow(/Local, private, and internal network destinations are forbidden/);
 
     fetchSpy.mockRestore();
+    dnsSpy.mockRestore();
   });
 });
 
@@ -263,6 +268,9 @@ describe('Express API Endpoints', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(dns, 'lookup').mockResolvedValue([
+      { address: '23.212.251.16', family: 4 },
+    ] as never);
   });
 
   it('GET /api/health returns service health and yt-dlp status', async () => {

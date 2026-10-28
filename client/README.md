@@ -138,7 +138,7 @@ npm -v
 
 ```bash
 git clone https://github.com/Fatzy070/downloader.git
-cd downloader
+cd downloader/client
 npm install
 ```
 
@@ -219,8 +219,9 @@ npm run preview
 1. **Deploy the Backend (e.g., Render Docker Web Service):**
    - Set `CLIENT_ORIGIN=http://localhost:5173,https://downloader.pxxlspace.cv` (including your deployed frontend domain).
    - Note your backend's public HTTPS URL.
-2. **Deploy the Frontend (e.g., Vercel):**
-   - Import this repository into Vercel.
+2. **Deploy the Frontend (Vercel):**
+   - Import the `Fatzy070/downloader` monorepo into Vercel.
+   - **Root Directory:** `client`
    - **Framework Preset:** `Vite`
    - **Build Command:** `npm run build`
    - **Output Directory:** `dist`

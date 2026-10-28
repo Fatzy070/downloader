@@ -1,0 +1,18 @@
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: downloader-server
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - CLIENT_ORIGIN=http://localhost:5173,https://downloader.pxxlspace.cv
+      - NODE_ENV=development
+      - DOWNLOAD_TIMEOUT_MS=120000
+      - EXTRACTION_TIMEOUT_MS=30000
+      - MAX_DOWNLOAD_SIZE_MB=200
+      - RATE_LIMIT_WINDOW_MS=60000
+      - RATE_LIMIT_MAX_REQUESTS=20
+    restart: unless-stopped

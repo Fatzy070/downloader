@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+client/dist/
+client/dist-ssr/
+server/dist/
+*.tsbuildinfo
+client/*.tsbuildinfo
+server/*.tsbuildinfo
+
+# Environment variables (keep safe .env.example templates tracked)
+.env
+.env.*
+!.env.example
+client/.env
+client/.env.*
+!client/.env.example
+server/.env
+server/.env.*
+!server/.env.example
+
+# Logs and test coverage
+*.log
+npm-debug.log*
+coverage/
+client/coverage/
+server/coverage/
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
