@@ -157,7 +157,7 @@ cp client/.env.example client/.env
 | Variable | Purpose | Local Default |
 | :--- | :--- | :--- |
 | `PORT` | TCP port on which the Express backend listens. | `3001` |
-| `CLIENT_ORIGIN` | Comma-separated list of allowed frontend origins for CORS. | `http://localhost:5173,https://downloader.pxxlspace.cv` |
+| `CLIENT_ORIGIN` | Comma-separated list of allowed frontend origins for CORS. | `http://localhost:5173,https://yourdomain` |
 | `NODE_ENV` | Runtime environment (`development`, `production`, or `test`). | `development` |
 | `EXTRACTION_TIMEOUT_MS` | Maximum time (in ms) allowed for `yt-dlp` metadata extraction (`POST /api/info`). | `30000` |
 | `DOWNLOAD_TIMEOUT_MS` | Maximum time (in ms) allowed for streaming a download (`GET /api/download`). | `120000` |
