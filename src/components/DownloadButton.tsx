@@ -39,12 +39,7 @@ export const DownloadButton: React.FC<DownloadButtonProps> = ({
       >
         <Download className="h-4 w-4 shrink-0" />
         <span>Download {selectedOption.label}</span>
-        {selectedOption.watermarkFree && (
-          <span className="inline-flex items-center gap-1 rounded-md bg-white/20 px-2 py-0.5 text-xs font-medium text-white">
-            <Sparkles className="h-3 w-3" />
-            Clean
-          </span>
-        )}
+   
       </a>
 
       {downloadTriggered && (

@@ -80,7 +80,7 @@ export const Home: React.FC = () => {
         <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-slate-200/70 bg-white/60 p-4 dark:border-slate-800/70 dark:bg-slate-900/50">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200">
-              <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              <Zap className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
               <span>Clean TikTok Streams</span>
             </div>
             <p className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
