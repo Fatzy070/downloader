@@ -1,4 +1,4 @@
-# PulseDL — Personal Universal Video Downloader
+# Fatzy — Personal Universal Video Downloader
 
 A clean, fast, self-hosted personal media downloader for **TikTok**, **Instagram**, **X (formerly Twitter)**, and **direct HTTPS media links**. Built with a **React + Vite + TypeScript + Tailwind CSS** frontend and a **Node.js + Express + TypeScript** backend powered by **`yt-dlp`** and **FFmpeg**.
 
@@ -23,7 +23,7 @@ A clean, fast, self-hosted personal media downloader for **TikTok**, **Instagram
 
 ## 1. Project Overview
 
-**PulseDL** allows you to paste a supported public media link, inspect its metadata (title, creator/uploader, duration, thumbnail, and available format options), and stream the media file directly to your device through your browser—without third-party advertisements, misleading download buttons, pop-ups, or unnecessary redirects.
+**Fatzy** allows you to paste a supported public media link, inspect its metadata (title, creator/uploader, duration, thumbnail, and available format options), and stream the media file directly to your device through your browser—without third-party advertisements, misleading download buttons, pop-ups, or unnecessary redirects.
 
 ### Supported Platforms
 

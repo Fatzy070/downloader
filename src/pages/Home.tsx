@@ -34,7 +34,7 @@ export const Home: React.FC = () => {
             </div>
             <div>
               <span className="text-base font-bold tracking-tight text-slate-900 dark:text-white">
-                PulseDL
+                Fatzy
               </span>
               <span className="ml-2 hidden rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 sm:inline-block dark:bg-slate-800 dark:text-slate-400">
                 Personal Utility
