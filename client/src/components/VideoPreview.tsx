@@ -4,7 +4,6 @@ import {
   Clock,
   Film,
   HardDrive,
-  Sparkles,
   User,
 } from 'lucide-react';
 import type { DownloadOption, VideoMetadata } from '../types/downloader';
@@ -109,7 +108,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ video }) => {
 
               {video.platform === 'tiktok' && video.watermarkFreeAvailable && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300">
-                  <Sparkles className="h-3 w-3" />
+                  <AlertTriangle />
                   Watermark-Free Available
                 </span>
               )}
