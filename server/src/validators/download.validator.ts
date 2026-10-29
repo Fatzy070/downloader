@@ -14,6 +14,7 @@ const PLATFORM_DOMAINS: Record<Exclude<SupportedPlatform, 'direct'>, string[]> =
   tiktok: ['tiktok.com'],
   instagram: ['instagram.com', 'instagr.am'],
   x: ['x.com', 'twitter.com', 't.co'],
+  snapchat: ['snapchat.com'],
 };
 
 const DIRECT_MEDIA_EXTENSIONS = [
@@ -255,7 +256,7 @@ export function validateAndClassifyUrl(rawUrl: string): ValidatedMediaUrl {
   const platform = detectPlatform(parsed);
   if (!platform) {
     throw new AppError(
-      'Unsupported URL or platform. Supported sources: TikTok, Instagram, X (Twitter), and direct HTTPS media links (.mp4, .webm, .mov, .mp3, .m4a).',
+      'Unsupported URL or platform. Supported sources: TikTok, Instagram, X (Twitter), Snapchat Spotlight, and direct HTTPS media links (.mp4, .webm, .mov, .mp3, .m4a).',
       400,
       'UNSUPPORTED_PLATFORM'
     );
@@ -273,6 +274,29 @@ export function validateAndClassifyUrl(rawUrl: string): ValidatedMediaUrl {
     );
   }
 
+  // Enforce strict Snapchat URL format matching yt-dlp's SnapchatSpotlightIE (_VALID_URL)
+  // plus Snapchat share short-links (t.snapchat.com/<code> or snapchat.com/t/<code>)
+  if (platform === 'snapchat') {
+    const host = parsed.hostname.toLowerCase();
+    const isSpotlightHost = host === 'snapchat.com' || host === 'www.snapchat.com';
+    const isShortHost = host === 't.snapchat.com';
+    const isSpotlightPath = /^\/spotlight\/[A-Za-z0-9_]+\/?$/.test(parsed.pathname);
+    const isWebShortPath = /^\/t\/[A-Za-z0-9_-]+\/?$/.test(parsed.pathname);
+    const isShortDomainPath = /^\/[A-Za-z0-9_-]+\/?$/.test(parsed.pathname);
+
+    const isValidSnapchatUrl =
+      (isSpotlightHost && (isSpotlightPath || isWebShortPath)) ||
+      (isShortHost && isShortDomainPath);
+
+    if (!isValidSnapchatUrl) {
+      throw new AppError(
+        'Unsupported Snapchat URL. Only public Snapchat Spotlight video links (https://www.snapchat.com/spotlight/<id>) are supported; Stories, profiles, and private Snaps are not supported.',
+        400,
+        'UNSUPPORTED_SNAPCHAT_URL'
+      );
+    }
+  }
+
   return {
     url: parsed.toString(),
     parsedUrl: parsed,
@@ -285,10 +309,16 @@ export function validateAndClassifyUrl(rawUrl: string): ValidatedMediaUrl {
  */
 function isShortLinkUrl(parsedUrl: URL): boolean {
   const host = parsedUrl.hostname.toLowerCase();
-  if (['vm.tiktok.com', 'vt.tiktok.com', 't.co', 'instagr.am'].includes(host)) {
+  if (['vm.tiktok.com', 'vt.tiktok.com', 't.co', 'instagr.am', 't.snapchat.com'].includes(host)) {
     return true;
   }
   if (matchesDomainBoundary(host, 'tiktok.com') && /^\/t\/[A-Za-z0-9_-]+/i.test(parsedUrl.pathname)) {
+    return true;
+  }
+  if (
+    (host === 'snapchat.com' || host === 'www.snapchat.com') &&
+    /^\/t\/[A-Za-z0-9_-]+/i.test(parsedUrl.pathname)
+  ) {
     return true;
   }
   return false;
@@ -406,6 +436,17 @@ export async function verifyNetworkSafetyAndRedirects(
       }
       break;
     }
+  }
+
+  if (
+    currentValidated.platform === 'snapchat' &&
+    !/^\/spotlight\/[A-Za-z0-9_]+\/?$/.test(currentValidated.parsedUrl.pathname)
+  ) {
+    throw new AppError(
+      'Snapchat short link did not resolve to a public Snapchat Spotlight video URL.',
+      400,
+      'UNSUPPORTED_SNAPCHAT_URL'
+    );
   }
 
   return currentValidated;

@@ -1,6 +1,6 @@
 # Fatzy — Personal Universal Video Downloader
 
-A clean, fast, self-hosted personal media downloader for **TikTok**, **Instagram**, **X (formerly Twitter)**, and **direct HTTPS media links**. Built with a **React + Vite + TypeScript + Tailwind CSS** frontend and a **Node.js + Express + TypeScript** backend powered by **`yt-dlp`** and **FFmpeg**.
+A clean, fast, self-hosted personal media downloader for **TikTok**, **Instagram**, **X (formerly Twitter)**, **Snapchat Spotlight**, and **direct HTTPS media links**. Built with a **React + Vite + TypeScript + Tailwind CSS** frontend and a **Node.js + Express + TypeScript** backend powered by **`yt-dlp`** and **FFmpeg**.
 
 ---
 
@@ -30,6 +30,7 @@ A clean, fast, self-hosted personal media downloader for **TikTok**, **Instagram
 - **TikTok** (`tiktok.com`, `www.tiktok.com`, `vm.tiktok.com`, `vt.tiktok.com`, `m.tiktok.com`) — automatically detects and selects legitimate **watermark-free** streams when provided by the source, and clearly badges when only a watermarked stream is available.
 - **Instagram** (`instagram.com`, `www.instagram.com`, `instagr.am`) — public Reels and video posts.
 - **X / Twitter** (`x.com`, `www.x.com`, `twitter.com`, `www.twitter.com`, `mobile.x.com`, `t.co`) — public video posts.
+- **Snapchat Spotlight** (`snapchat.com/spotlight/...`, `www.snapchat.com/spotlight/...`, `t.snapchat.com/...`) — public Spotlight video posts.
 - **Direct HTTPS Media Links** — direct public links ending in `.mp4`, `.webm`, `.mov`, `.m4v`, `.mp3`, `.m4a`, `.ogg`, or `.wav`.
 
 ### Extraction Engine & Platform Compatibility

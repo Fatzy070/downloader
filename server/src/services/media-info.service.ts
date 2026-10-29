@@ -126,6 +126,12 @@ function selectBrowserPlayablePreviewUrl(
     }
   }
 
+  // Handle single-stream extractors (such as SnapchatSpotlight) that populate top-level rawInfo.url + rawInfo.ext
+  const topLevelExt = (rawInfo.ext || '').toLowerCase();
+  if (rawInfo.url && ['mp4', 'webm', 'mov'].includes(topLevelExt)) {
+    return sanitizeSafeHttpsUrl(rawInfo.url);
+  }
+
   return null;
 }
 
@@ -149,7 +155,12 @@ export function normalizeMediaMetadata(
   const heights = videoFormats
     .map((f) => (typeof f.height === 'number' ? f.height : 0))
     .filter((h) => h > 0);
-  const maxHeight = heights.length > 0 ? Math.max(...heights) : null;
+  const maxHeight =
+    heights.length > 0
+      ? Math.max(...heights)
+      : typeof rawInfo.height === 'number' && rawInfo.height > 0
+        ? rawInfo.height
+        : null;
 
   const fallbackSize = rawInfo.filesize ?? rawInfo.filesize_approx ?? null;
 

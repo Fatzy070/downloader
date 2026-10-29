@@ -1,7 +1,12 @@
 import type { ChildProcess } from 'node:child_process';
 import type { Readable } from 'node:stream';
 
-export type SupportedPlatform = 'tiktok' | 'instagram' | 'x' | 'direct';
+export type SupportedPlatform =
+  | 'tiktok'
+  | 'instagram'
+  | 'x'
+  | 'snapchat'
+  | 'direct';
 
 export const DOWNLOAD_OPTION_IDS = [
   'best',
@@ -74,6 +79,8 @@ export interface RawYtDlpInfo {
   original_url?: string;
   url?: string;
   ext?: string;
+  width?: number | null;
+  height?: number | null;
   filesize?: number | null;
   filesize_approx?: number | null;
   formats?: RawYtDlpFormat[];

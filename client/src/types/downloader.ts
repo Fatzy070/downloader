@@ -1,4 +1,9 @@
-export type SupportedPlatform = 'tiktok' | 'instagram' | 'x' | 'direct';
+export type SupportedPlatform =
+  | 'tiktok'
+  | 'instagram'
+  | 'x'
+  | 'snapchat'
+  | 'direct';
 
 export type DownloadOptionId =
   | 'best'

@@ -17,6 +17,7 @@ const SUPPORTED_PLATFORMS: SupportedPlatform[] = [
   'tiktok',
   'instagram',
   'x',
+  'snapchat',
   'direct',
 ];
 
@@ -135,7 +136,7 @@ export const Downloader: React.FC = () => {
                 value={urlInput}
                 onChange={handleInputChange}
                 disabled={isLoading}
-                placeholder="https://www.tiktok.com/@user/video/... or Instagram / X link"
+                placeholder="https://www.tiktok.com/@user/video/... or Instagram, X, Snapchat Spotlight link"
                 className="block w-full rounded-xl border border-slate-300 bg-slate-50/70 py-3.5 pl-10 pr-24 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-indigo-400 dark:focus:bg-slate-800"
               />
 

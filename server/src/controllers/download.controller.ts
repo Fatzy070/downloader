@@ -17,6 +17,7 @@ export async function getHealth(
       service: 'universal-video-downloader-api',
       timestamp: new Date().toISOString(),
       uptimeSeconds: Math.round(process.uptime()),
+      ytdlpVersion,
       extractor: {
         engine: 'yt-dlp',
         available: Boolean(ytdlpVersion),

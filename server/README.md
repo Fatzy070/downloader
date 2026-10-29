@@ -453,7 +453,7 @@ npm run build
 ```
 
 ### What `tests/download.test.ts` Covers
-- Valid URL classification for TikTok, `vm.tiktok.com`, Instagram Reels, X (`x.com` / `twitter.com`), and direct HTTPS `.mp4` links.
+- Valid URL classification for TikTok, `vm.tiktok.com`, Instagram Reels, X (`x.com` / `twitter.com`), Snapchat Spotlight (`snapchat.com/spotlight/...` and `t.snapchat.com`), and direct HTTPS `.mp4` links.
 - Rejection of empty, malformed, `http://`, `ftp://`, `javascript:`, credential-embedded, and homepage-only URLs.
 - Hostname boundary enforcement (rejecting lookalike domains like `evil-tiktok.com` and `tiktok.com.attacker.com`).
 - Private/loopback/link-local IPv4 & IPv6 blocking (`127.0.0.1`, `10.0.0.1`, `172.16.5.4`, `192.168.1.100`, `169.254.169.254`, `::1`, `::ffff:127.0.0.1`, `fe80::1`, `fc00::1`).

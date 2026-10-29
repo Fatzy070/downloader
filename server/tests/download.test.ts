@@ -42,10 +42,49 @@ describe('URL Validation & Network Safety', () => {
     );
     expect(twitterPost.platform).toBe('x');
 
+    const snapchatSpotlight = validateAndClassifyUrl(
+      'https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYYWtidGhudGZpAX1TKn0JAX1TKnXJAAAAAA'
+    );
+    expect(snapchatSpotlight.platform).toBe('snapchat');
+
+    const snapchatBareHost = validateAndClassifyUrl(
+      'https://snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYYWtidGhudGZpAX1TKn0JAX1TKnXJAAAAAA/'
+    );
+    expect(snapchatBareHost.platform).toBe('snapchat');
+
+    const snapchatShort = validateAndClassifyUrl('https://t.snapchat.com/AbCdEf12');
+    expect(snapchatShort.platform).toBe('snapchat');
+
     const directMp4 = validateAndClassifyUrl(
       'https://cdn.example.org/media/sample-clip.mp4'
     );
     expect(directMp4.platform).toBe('direct');
+  });
+
+  it('rejects unsupported Snapchat paths (Stories, profiles, add links, non-Spotlight subdomains)', () => {
+    expect(() =>
+      validateAndClassifyUrl('https://www.snapchat.com/add/someuser')
+    ).toThrowError(/Only public Snapchat Spotlight video links/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.snapchat.com/s/story123')
+    ).toThrowError(/Only public Snapchat Spotlight video links/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.snapchat.com/p/profile123')
+    ).toThrowError(/Only public Snapchat Spotlight video links/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.snapchat.com/spotlight/')
+    ).toThrowError(/Only public Snapchat Spotlight video links/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://accounts.snapchat.com/spotlight/W7_EDlXWTBiX')
+    ).toThrowError(/Only public Snapchat Spotlight video links/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://evil-snapchat.com/spotlight/W7_EDlXWTBiX')
+    ).toThrowError(/Unsupported URL or platform/);
   });
 
   it('rejects empty, malformed, and non-HTTPS URLs', () => {
@@ -177,6 +216,60 @@ describe('URL Validation & Network Safety', () => {
 
     await expect(
       verifyNetworkSafetyAndRedirects('https://vm.tiktok.com/ZN8U27FNg/')
+    ).rejects.toThrow(/Local, private, and internal network destinations are forbidden/);
+
+    fetchSpy.mockRestore();
+    dnsSpy.mockRestore();
+  });
+
+  it('resolves t.snapchat.com short links to Spotlight URLs and rejects non-Spotlight or SSRF redirects', async () => {
+    const dnsSpy = vi
+      .spyOn(dns, 'lookup')
+      .mockResolvedValue([{ address: '34.110.180.1', family: 4 }] as never);
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: {
+            location:
+              'https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYYWtidGhudGZpAX1TKn0JAX1TKnXJAAAAAA',
+          },
+        })
+      );
+
+    const resolved = await verifyNetworkSafetyAndRedirects(
+      'https://t.snapchat.com/AbCdEf12'
+    );
+    expect(resolved.url).toBe(
+      'https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYYWtidGhudGZpAX1TKn0JAX1TKnXJAAAAAA'
+    );
+    expect(resolved.platform).toBe('snapchat');
+
+    // Reject if short link redirects to a Snapchat profile (/add/...) instead of Spotlight
+    fetchSpy.mockResolvedValueOnce(
+      new Response(null, {
+        status: 302,
+        headers: {
+          location: 'https://www.snapchat.com/add/someuser',
+        },
+      })
+    );
+    await expect(
+      verifyNetworkSafetyAndRedirects('https://t.snapchat.com/AbCdEf12')
+    ).rejects.toThrow(/Only public Snapchat Spotlight video links/);
+
+    // Reject if short link redirects to a private IP (SSRF)
+    fetchSpy.mockResolvedValueOnce(
+      new Response(null, {
+        status: 302,
+        headers: {
+          location: 'https://169.254.169.254/latest/meta-data',
+        },
+      })
+    );
+    await expect(
+      verifyNetworkSafetyAndRedirects('https://t.snapchat.com/AbCdEf12')
     ).rejects.toThrow(/Local, private, and internal network destinations are forbidden/);
 
     fetchSpy.mockRestore();
@@ -319,6 +412,30 @@ describe('Metadata Normalization & Watermark Handling', () => {
     );
 
     expect(cookieBoundMetadata.previewUrl).toBeNull();
+
+    // SnapchatSpotlight returns top-level url + ext="mp4" with formats omitted
+    const snapchatMetadata = normalizeMediaMetadata(
+      {
+        id: 'W7_EDlXWTBiXAEEniNoMPwAAYYWtidGhudGZpAX1TKn0JAX1TKnXJAAAAAA',
+        title: 'Views 💕',
+        uploader: 'shreypatel57',
+        duration: 4.665,
+        ext: 'mp4',
+        url: 'https://cf-st.sc-cdn.net/d/kKJHIR1QAznRKK9jgYYDq.27.IRZXSOY?mo=123',
+        thumbnail: 'https://cf-st.sc-cdn.net/d/kKJHIR1QAznRKK9jgYYDq.256.IRZXSOY',
+        extractor_key: 'SnapchatSpotlight',
+      },
+      'https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYYWtidGhudGZpAX1TKn0JAX1TKnXJAAAAAA',
+      'snapchat'
+    );
+
+    expect(snapchatMetadata.platform).toBe('snapchat');
+    expect(snapchatMetadata.extractor).toBe('SnapchatSpotlight');
+    expect(snapchatMetadata.duration).toBe(5);
+    expect(snapchatMetadata.previewUrl).toBe(
+      'https://cf-st.sc-cdn.net/d/kKJHIR1QAznRKK9jgYYDq.27.IRZXSOY?mo=123'
+    );
+    expect(snapchatMetadata.options[0]?.id).toBe('best');
   });
 });
 
@@ -338,6 +455,7 @@ describe('Express API Endpoints', () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
+    expect(res.body.ytdlpVersion).toBe('2026.10.26');
     expect(res.body.extractor.engine).toBe('yt-dlp');
     expect(res.body.extractor.available).toBe(true);
     expect(res.body.extractor.version).toBe('2026.10.26');

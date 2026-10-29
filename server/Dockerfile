@@ -23,9 +23,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 # Install yt-dlp with default extras and curl-cffi (required by TikTok extractor for browser TLS impersonation)
+ARG YTDLP_CACHE_BUST=latest
 RUN python3 -m venv /opt/venv \
   && /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
-  && /opt/venv/bin/pip install --no-cache-dir "yt-dlp[default,curl-cffi]" \
+  && /opt/venv/bin/pip install --no-cache-dir --upgrade "yt-dlp[default,curl-cffi]" \
   && ln -sf /opt/venv/bin/yt-dlp /usr/local/bin/yt-dlp \
   && chmod -R a+rX /opt/venv
 

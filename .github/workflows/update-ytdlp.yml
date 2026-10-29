@@ -1,0 +1,219 @@
+name: Update yt-dlp
+
+on:
+  schedule:
+    # Every Monday and Thursday at 06:00 UTC
+    - cron: "0 6 * * 1,4"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Prevent overlapping scheduled or manual runs from triggering competing Render deployments
+concurrency:
+  group: update-ytdlp-production
+  cancel-in-progress: false
+
+jobs:
+  check-and-redeploy:
+    name: Check yt-dlp version & redeploy backend if outdated
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Validate required secrets are configured
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          set -euo pipefail
+          if [ -z "${API_URL:-}" ]; then
+            echo "::error::Missing required GitHub Actions secret: API_URL"
+            exit 1
+          fi
+          if [ -z "${RENDER_DEPLOY_HOOK:-}" ]; then
+            echo "::error::Missing required GitHub Actions secret: RENDER_DEPLOY_HOOK"
+            exit 1
+          fi
+
+      - name: Get latest stable yt-dlp release from GitHub
+        id: latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          RESPONSE=$(curl -fsSL \
+            --retry 3 \
+            --retry-delay 5 \
+            --max-time 30 \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "User-Agent: fatzy-downloader-ytdlp-updater" \
+            "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest")
+
+          TAG=$(printf '%s' "$RESPONSE" | jq -r '.tag_name // empty')
+          IS_PRERELEASE=$(printf '%s' "$RESPONSE" | jq -r '.prerelease // false')
+          IS_DRAFT=$(printf '%s' "$RESPONSE" | jq -r '.draft // false')
+
+          if [ -z "$TAG" ] || [ "$TAG" = "null" ]; then
+            echo "::error::Failed to parse latest yt-dlp release tag from GitHub API."
+            exit 1
+          fi
+
+          if [ "$IS_PRERELEASE" = "true" ] || [ "$IS_DRAFT" = "true" ]; then
+            echo "::error::Latest release returned by GitHub API is marked as draft or prerelease ($TAG)."
+            exit 1
+          fi
+
+          # Normalize tag (strip optional leading 'v' and zero-pad YYYY.MM.DD[.rev] for canonical comparison)
+          CLEAN_TAG="${TAG#v}"
+          NORMALIZED_LATEST=$(printf '%s' "$CLEAN_TAG" | awk -F. '{
+            if (NF >= 3 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && $3 ~ /^[0-9]+$/) {
+              printf "%04d.%02d.%02d", $1, $2, $3;
+              for (i = 4; i <= NF; i++) printf ".%s", $i;
+              printf "\n";
+            } else {
+              print $0;
+            }
+          }')
+
+          echo "Latest stable yt-dlp release: $TAG (normalized: $NORMALIZED_LATEST)"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "normalized=$NORMALIZED_LATEST" >> "$GITHUB_OUTPUT"
+
+      - name: Get currently deployed yt-dlp version from /api/health
+        id: current
+        env:
+          API_URL: ${{ secrets.API_URL }}
+        run: |
+          set -euo pipefail
+          BASE_URL="${API_URL%/}"
+
+          # Retry with backoff to handle Render free/starter instance cold starts (up to ~2 minutes)
+          HEALTH_JSON=$(curl -fsS \
+            --retry 5 \
+            --retry-delay 15 \
+            --retry-all-errors \
+            --max-time 60 \
+            -H "Accept: application/json" \
+            "$BASE_URL/api/health")
+
+          STATUS=$(printf '%s' "$HEALTH_JSON" | jq -r '.status // empty')
+          VERSION=$(printf '%s' "$HEALTH_JSON" | jq -r '.extractor.version // .ytdlpVersion // empty')
+
+          if [ "$STATUS" != "ok" ] || [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+            echo "::error::Backend /api/health did not return a valid yt-dlp version (status=${STATUS:-missing})."
+            exit 1
+          fi
+
+          CLEAN_VERSION="${VERSION#v}"
+          NORMALIZED_CURRENT=$(printf '%s' "$CLEAN_VERSION" | awk -F. '{
+            if (NF >= 3 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && $3 ~ /^[0-9]+$/) {
+              printf "%04d.%02d.%02d", $1, $2, $3;
+              for (i = 4; i <= NF; i++) printf ".%s", $i;
+              printf "\n";
+            } else {
+              print $0;
+            }
+          }')
+
+          echo "Deployed yt-dlp version: $VERSION (normalized: $NORMALIZED_CURRENT)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "normalized=$NORMALIZED_CURRENT" >> "$GITHUB_OUTPUT"
+
+      - name: Compare deployed version against latest release
+        id: compare
+        env:
+          LATEST_NORM: ${{ steps.latest.outputs.normalized }}
+          CURRENT_NORM: ${{ steps.current.outputs.normalized }}
+        run: |
+          set -euo pipefail
+          if [ "$LATEST_NORM" = "$CURRENT_NORM" ]; then
+            echo "Deployed yt-dlp ($CURRENT_NORM) matches latest stable release ($LATEST_NORM)."
+            echo "outdated=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Use version sort (sort -V) to verify LATEST_NORM is strictly newer than CURRENT_NORM
+          HIGHEST=$(printf '%s\n%s\n' "$CURRENT_NORM" "$LATEST_NORM" | sort -V | tail -n 1)
+          if [ "$HIGHEST" = "$LATEST_NORM" ]; then
+            echo "Deployed yt-dlp ($CURRENT_NORM) is older than latest release ($LATEST_NORM). Redeploy required."
+            echo "outdated=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Deployed yt-dlp ($CURRENT_NORM) is already newer than or equal to ($LATEST_NORM). Skipping redeploy."
+            echo "outdated=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger Render cache-cleared Docker rebuild and verify updated deployment
+        if: steps.compare.outputs.outdated == 'true'
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+          EXPECTED_NORM: ${{ steps.latest.outputs.normalized }}
+          PREVIOUS_NORM: ${{ steps.current.outputs.normalized }}
+        run: |
+          set -euo pipefail
+          BASE_URL="${API_URL%/}"
+
+          # Append clearCache=true so Render rebuilds the Docker image layers and fetches the latest yt-dlp[default,curl-cffi]
+          if [[ "$DEPLOY_HOOK" == *"?"* ]]; then
+            TRIGGER_URL="${DEPLOY_HOOK}&clearCache=true"
+          else
+            TRIGGER_URL="${DEPLOY_HOOK}?clearCache=true"
+          fi
+
+          echo "Triggering Render deployment hook with build cache cleared..."
+          HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
+            --retry 3 \
+            --retry-delay 5 \
+            --max-time 30 \
+            -X POST "$TRIGGER_URL")
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "::error::Render deploy hook request failed with HTTP status $HTTP_CODE."
+            exit 1
+          fi
+
+          echo "Render accepted deployment trigger (HTTP $HTTP_CODE). Waiting 60s before polling /api/health..."
+          sleep 60
+
+          MAX_ATTEMPTS=24
+          SLEEP_SECONDS=30
+
+          for ATTEMPT in $(seq 1 "$MAX_ATTEMPTS"); do
+            echo "Verification attempt $ATTEMPT/$MAX_ATTEMPTS..."
+            if HEALTH_JSON=$(curl -fsS --max-time 30 -H "Accept: application/json" "$BASE_URL/api/health" 2>/dev/null); then
+              LIVE_VERSION=$(printf '%s' "$HEALTH_JSON" | jq -r '.extractor.version // .ytdlpVersion // empty')
+              CLEAN_LIVE="${LIVE_VERSION#v}"
+              NORMALIZED_LIVE=$(printf '%s' "$CLEAN_LIVE" | awk -F. '{
+                if (NF >= 3 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && $3 ~ /^[0-9]+$/) {
+                  printf "%04d.%02d.%02d", $1, $2, $3;
+                  for (i = 4; i <= NF; i++) printf ".%s", $i;
+                  printf "\n";
+                } else {
+                  print $0;
+                }
+              }')
+
+              if [ "$NORMALIZED_LIVE" = "$EXPECTED_NORM" ]; then
+                echo "Success: Render backend is healthy and running yt-dlp $LIVE_VERSION (normalized: $NORMALIZED_LIVE)."
+                exit 0
+              fi
+
+              echo "Backend currently reports yt-dlp ${LIVE_VERSION:-unknown} (waiting for $EXPECTED_NORM)..."
+            else
+              echo "Backend /api/health temporarily unreachable during deployment rollover..."
+            fi
+
+            if [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; then
+              sleep "$SLEEP_SECONDS"
+            fi
+          done
+
+          echo "::error::Deployment verification timed out after $((MAX_ATTEMPTS * SLEEP_SECONDS / 60)) minutes. Backend did not update from $PREVIOUS_NORM to $EXPECTED_NORM."
+          exit 1
+
+      - name: Already up to date
+        if: steps.compare.outputs.outdated != 'true'
+        run: |
+          echo "yt-dlp is already up to date (${{ steps.current.outputs.version }}). No Render deployment needed."
