@@ -55,6 +55,22 @@ describe('URL Validation & Network Safety', () => {
     const snapchatShort = validateAndClassifyUrl('https://t.snapchat.com/AbCdEf12');
     expect(snapchatShort.platform).toBe('snapchat');
 
+    const snapchatWebShort = validateAndClassifyUrl('https://snapchat.com/t/fc6R00hu');
+    expect(snapchatWebShort.platform).toBe('snapchat');
+
+    const snapchatWwwWebShort = validateAndClassifyUrl('https://www.snapchat.com/t/fc6R00hu');
+    expect(snapchatWwwWebShort.platform).toBe('snapchat');
+
+    const snapchatUserSpotlight = validateAndClassifyUrl(
+      'https://www.snapchat.com/@geh.updates/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYdmdmanNueXd6AaF4GoeCAaF4GiqWAAAAAA'
+    );
+    expect(snapchatUserSpotlight.platform).toBe('snapchat');
+
+    const snapchatStoryRedirectHop = validateAndClassifyUrl(
+      'https://story.snapchat.com/o/W7_EDlXWTBiXAEEniNoMPwAAYdmdmanNueXd6AaF4GoeCAaF4GiqWAAAAAA'
+    );
+    expect(snapchatStoryRedirectHop.platform).toBe('snapchat');
+
     const directMp4 = validateAndClassifyUrl(
       'https://cdn.example.org/media/sample-clip.mp4'
     );
@@ -270,6 +286,89 @@ describe('URL Validation & Network Safety', () => {
     );
     await expect(
       verifyNetworkSafetyAndRedirects('https://t.snapchat.com/AbCdEf12')
+    ).rejects.toThrow(/Local, private, and internal network destinations are forbidden/);
+
+    fetchSpy.mockRestore();
+    dnsSpy.mockRestore();
+  });
+
+  it('resolves snapchat.com/t/ multi-hop share links to canonical Spotlight URLs and rejects invalid targets', async () => {
+    const dnsSpy = vi
+      .spyOn(dns, 'lookup')
+      .mockResolvedValue([{ address: '34.110.180.1', family: 4 }] as never);
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      // Step 1: snapchat.com/t/fc6R00hu -> 301 www.snapchat.com/t/fc6R00hu
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 301,
+          headers: {
+            location: 'https://www.snapchat.com/t/fc6R00hu',
+          },
+        })
+      )
+      // Step 2: www.snapchat.com/t/fc6R00hu -> 303 story.snapchat.com/o/...
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 303,
+          headers: {
+            location:
+              'https://story.snapchat.com/o/W7_EDlXWTBiXAEEniNoMPwAAYdmdmanNueXd6AaF4GoeCAaF4GiqWAAAAAA?invite_id=123',
+          },
+        })
+      )
+      // Step 3: story.snapchat.com/o/... -> 301 www.snapchat.com/spotlight/...
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 301,
+          headers: {
+            location:
+              'https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYdmdmanNueXd6AaF4GoeCAaF4GiqWAAAAAA?invite_id=123',
+          },
+        })
+      );
+
+    const resolved = await verifyNetworkSafetyAndRedirects(
+      'https://snapchat.com/t/fc6R00hu'
+    );
+    expect(resolved.url).toBe(
+      'https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYdmdmanNueXd6AaF4GoeCAaF4GiqWAAAAAA'
+    );
+    expect(resolved.platform).toBe('snapchat');
+
+    // Also normalizes direct @user/spotlight/<id> URLs to canonical spotlight URL
+    const directUserSpotlight = await verifyNetworkSafetyAndRedirects(
+      'https://www.snapchat.com/@geh.updates/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYdmdmanNueXd6AaF4GoeCAaF4GiqWAAAAAA'
+    );
+    expect(directUserSpotlight.url).toBe(
+      'https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYdmdmanNueXd6AaF4GoeCAaF4GiqWAAAAAA'
+    );
+    expect(directUserSpotlight.platform).toBe('snapchat');
+
+    // Reject if /t/ link redirects to an unsupported Snapchat path (e.g. /add/friend)
+    fetchSpy.mockResolvedValueOnce(
+      new Response(null, {
+        status: 302,
+        headers: {
+          location: 'https://www.snapchat.com/add/friend',
+        },
+      })
+    );
+    await expect(
+      verifyNetworkSafetyAndRedirects('https://snapchat.com/t/fc6R00hu')
+    ).rejects.toThrow(/Only public Snapchat Spotlight video links/);
+
+    // Reject if /t/ link redirects to an internal host or SSRF target
+    fetchSpy.mockResolvedValueOnce(
+      new Response(null, {
+        status: 302,
+        headers: {
+          location: 'https://10.0.0.1/admin',
+        },
+      })
+    );
+    await expect(
+      verifyNetworkSafetyAndRedirects('https://snapchat.com/t/fc6R00hu')
     ).rejects.toThrow(/Local, private, and internal network destinations are forbidden/);
 
     fetchSpy.mockRestore();

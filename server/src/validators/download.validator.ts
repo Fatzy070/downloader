@@ -275,18 +275,22 @@ export function validateAndClassifyUrl(rawUrl: string): ValidatedMediaUrl {
   }
 
   // Enforce strict Snapchat URL format matching yt-dlp's SnapchatSpotlightIE (_VALID_URL)
-  // plus Snapchat share short-links (t.snapchat.com/<code> or snapchat.com/t/<code>)
+  // plus Snapchat share short-links (snapchat.com/t/<code>, t.snapchat.com/<code>, story.snapchat.com/o/<code>)
   if (platform === 'snapchat') {
     const host = parsed.hostname.toLowerCase();
     const isSpotlightHost = host === 'snapchat.com' || host === 'www.snapchat.com';
     const isShortHost = host === 't.snapchat.com';
-    const isSpotlightPath = /^\/spotlight\/[A-Za-z0-9_]+\/?$/.test(parsed.pathname);
-    const isWebShortPath = /^\/t\/[A-Za-z0-9_-]+\/?$/.test(parsed.pathname);
-    const isShortDomainPath = /^\/[A-Za-z0-9_-]+\/?$/.test(parsed.pathname);
+    const isStoryHost = host === 'story.snapchat.com';
+
+    const isSpotlightPath = /^\/(?:@[^/]+\/)?spotlight\/[A-Za-z0-9_]+\/?$/i.test(parsed.pathname);
+    const isWebShortPath = /^\/t\/[A-Za-z0-9_-]+\/?$/i.test(parsed.pathname);
+    const isShortDomainPath = /^\/[A-Za-z0-9_-]+\/?$/i.test(parsed.pathname);
+    const isStoryPath = /^\/o\/[A-Za-z0-9_-]+\/?$/i.test(parsed.pathname);
 
     const isValidSnapchatUrl =
       (isSpotlightHost && (isSpotlightPath || isWebShortPath)) ||
-      (isShortHost && isShortDomainPath);
+      (isShortHost && isShortDomainPath) ||
+      (isStoryHost && isStoryPath);
 
     if (!isValidSnapchatUrl) {
       throw new AppError(
@@ -315,11 +319,11 @@ function isShortLinkUrl(parsedUrl: URL): boolean {
   if (matchesDomainBoundary(host, 'tiktok.com') && /^\/t\/[A-Za-z0-9_-]+/i.test(parsedUrl.pathname)) {
     return true;
   }
-  if (
-    (host === 'snapchat.com' || host === 'www.snapchat.com') &&
-    /^\/t\/[A-Za-z0-9_-]+/i.test(parsedUrl.pathname)
-  ) {
-    return true;
+  if (matchesDomainBoundary(host, 'snapchat.com')) {
+    // Snapchat share links (/t/...) and intermediate story routing (/o/...)
+    if (/^\/(?:t|o)\/[A-Za-z0-9_-]+/i.test(parsedUrl.pathname)) {
+      return true;
+    }
   }
   return false;
 }
@@ -438,14 +442,22 @@ export async function verifyNetworkSafetyAndRedirects(
     }
   }
 
-  if (
-    currentValidated.platform === 'snapchat' &&
-    !/^\/spotlight\/[A-Za-z0-9_]+\/?$/.test(currentValidated.parsedUrl.pathname)
-  ) {
-    throw new AppError(
-      'Snapchat short link did not resolve to a public Snapchat Spotlight video URL.',
-      400,
-      'UNSUPPORTED_SNAPCHAT_URL'
+  if (currentValidated.platform === 'snapchat') {
+    const spotlightMatch = currentValidated.parsedUrl.pathname.match(
+      /^\/(?:@[^/]+\/)?spotlight\/([A-Za-z0-9_]+)\/?$/i
+    );
+    if (!spotlightMatch) {
+      throw new AppError(
+        'Snapchat short link did not resolve to a public Snapchat Spotlight video URL.',
+        400,
+        'UNSUPPORTED_SNAPCHAT_URL'
+      );
+    }
+
+    // Normalize to canonical spotlight URL so yt-dlp invokes its dedicated SnapchatSpotlight extractor
+    const spotlightId = spotlightMatch[1];
+    currentValidated = validateAndClassifyUrl(
+      `https://www.snapchat.com/spotlight/${spotlightId}`
     );
   }
 
