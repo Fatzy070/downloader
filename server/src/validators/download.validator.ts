@@ -282,7 +282,7 @@ export function validateAndClassifyUrl(rawUrl: string): ValidatedMediaUrl {
     const isShortHost = host === 't.snapchat.com';
     const isStoryHost = host === 'story.snapchat.com';
 
-    const isSpotlightPath = /^\/(?:@[^/]+\/)?spotlight\/[A-Za-z0-9_]+\/?$/i.test(parsed.pathname);
+    const isSpotlightPath = /^\/(?:@[^/]+\/)?spotlight\/[A-Za-z0-9_-]+\/?$/i.test(parsed.pathname);
     const isWebShortPath = /^\/t\/[A-Za-z0-9_-]+\/?$/i.test(parsed.pathname);
     const isShortDomainPath = /^\/[A-Za-z0-9_-]+\/?$/i.test(parsed.pathname);
     const isStoryPath = /^\/o\/[A-Za-z0-9_-]+\/?$/i.test(parsed.pathname);
@@ -444,7 +444,7 @@ export async function verifyNetworkSafetyAndRedirects(
 
   if (currentValidated.platform === 'snapchat') {
     const spotlightMatch = currentValidated.parsedUrl.pathname.match(
-      /^\/(?:@[^/]+\/)?spotlight\/([A-Za-z0-9_]+)\/?$/i
+      /^\/(?:@[^/]+\/)?spotlight\/([A-Za-z0-9_-]+)\/?$/i
     );
     if (!spotlightMatch) {
       throw new AppError(

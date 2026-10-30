@@ -61,15 +61,31 @@ describe('URL Validation & Network Safety', () => {
     const snapchatWwwWebShort = validateAndClassifyUrl('https://www.snapchat.com/t/fc6R00hu');
     expect(snapchatWwwWebShort.platform).toBe('snapchat');
 
+    const snapchatNewFailingShort = validateAndClassifyUrl('https://snapchat.com/t/UC1FHTyb');
+    expect(snapchatNewFailingShort.platform).toBe('snapchat');
+
+    const snapchatNewFailingWwwShort = validateAndClassifyUrl('https://www.snapchat.com/t/UC1FHTyb');
+    expect(snapchatNewFailingWwwShort.platform).toBe('snapchat');
+
     const snapchatUserSpotlight = validateAndClassifyUrl(
       'https://www.snapchat.com/@geh.updates/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYdmdmanNueXd6AaF4GoeCAaF4GiqWAAAAAA'
     );
     expect(snapchatUserSpotlight.platform).toBe('snapchat');
 
+    const snapchatHyphenUserSpotlight = validateAndClassifyUrl(
+      'https://www.snapchat.com/@styleupaven/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYanJxeHJ5eWh0AaFAML2WAaFAMI-3AAAAAQ'
+    );
+    expect(snapchatHyphenUserSpotlight.platform).toBe('snapchat');
+
     const snapchatStoryRedirectHop = validateAndClassifyUrl(
       'https://story.snapchat.com/o/W7_EDlXWTBiXAEEniNoMPwAAYdmdmanNueXd6AaF4GoeCAaF4GiqWAAAAAA'
     );
     expect(snapchatStoryRedirectHop.platform).toBe('snapchat');
+
+    const snapchatStoryHyphenRedirectHop = validateAndClassifyUrl(
+      'https://story.snapchat.com/o/W7_EDlXWTBiXAEEniNoMPwAAYanJxeHJ5eWh0AaFAML2WAaFAMI-3AAAAAQ'
+    );
+    expect(snapchatStoryHyphenRedirectHop.platform).toBe('snapchat');
 
     const directMp4 = validateAndClassifyUrl(
       'https://cdn.example.org/media/sample-clip.mp4'
@@ -370,6 +386,73 @@ describe('URL Validation & Network Safety', () => {
     await expect(
       verifyNetworkSafetyAndRedirects('https://snapchat.com/t/fc6R00hu')
     ).rejects.toThrow(/Local, private, and internal network destinations are forbidden/);
+
+    fetchSpy.mockRestore();
+    dnsSpy.mockRestore();
+  });
+
+  it('resolves hyphenated Snapchat Spotlight IDs from /t/UC1FHTyb share links and creator URLs', async () => {
+    const dnsSpy = vi
+      .spyOn(dns, 'lookup')
+      .mockResolvedValue([{ address: '34.110.180.1', family: 4 }] as never);
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      // Step 1: snapchat.com/t/UC1FHTyb -> 301 www.snapchat.com:443/t/UC1FHTyb
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 301,
+          headers: {
+            location: 'https://www.snapchat.com:443/t/UC1FHTyb',
+          },
+        })
+      )
+      // Step 2: www.snapchat.com:443/t/UC1FHTyb -> 303 story.snapchat.com/o/...-3AAAAAQ?...
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 303,
+          headers: {
+            location:
+              'https://story.snapchat.com/o/W7_EDlXWTBiXAEEniNoMPwAAYanJxeHJ5eWh0AaFAML2WAaFAMI-3AAAAAQ?invite_id=35JHzG2D&locale=en_AE&share_id=G82oAJXjR2Kggj1B-A2qaA&sid=ec9466562f63484daac8478447434551',
+          },
+        })
+      )
+      // Step 3: story.snapchat.com/o/... -> 301 www.snapchat.com/spotlight/...-3AAAAAQ?...
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 301,
+          headers: {
+            location:
+              'https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYanJxeHJ5eWh0AaFAML2WAaFAMI-3AAAAAQ?locale=en_AE&sid=ec9466562f63484daac8478447434551&share_id=G82oAJXjR2Kggj1B-A2qaA&invite_id=35JHzG2D',
+          },
+        })
+      )
+      // Step 4: www.snapchat.com/spotlight/... -> 301 www.snapchat.com/@styleupaven/spotlight/...-3AAAAAQ?...
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 301,
+          headers: {
+            location:
+              'https://www.snapchat.com/@styleupaven/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYanJxeHJ5eWh0AaFAML2WAaFAMI-3AAAAAQ?locale=en_AE&sid=ec9466562f63484daac8478447434551&share_id=G82oAJXjR2Kggj1B-A2qaA&invite_id=35JHzG2D',
+          },
+        })
+      );
+
+    const resolved = await verifyNetworkSafetyAndRedirects(
+      'https://snapchat.com/t/UC1FHTyb'
+    );
+    expect(resolved.url).toBe(
+      'https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYanJxeHJ5eWh0AaFAML2WAaFAMI-3AAAAAQ'
+    );
+    expect(resolved.platform).toBe('snapchat');
+
+    // Also normalizes direct @creator/spotlight/<id-with-hyphens> URLs
+    const directCreatorSpotlight = await verifyNetworkSafetyAndRedirects(
+      'https://www.snapchat.com/@styleupaven/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYanJxeHJ5eWh0AaFAML2WAaFAMI-3AAAAAQ'
+    );
+    expect(directCreatorSpotlight.url).toBe(
+      'https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYanJxeHJ5eWh0AaFAML2WAaFAMI-3AAAAAQ'
+    );
+    expect(directCreatorSpotlight.platform).toBe('snapchat');
 
     fetchSpy.mockRestore();
     dnsSpy.mockRestore();
