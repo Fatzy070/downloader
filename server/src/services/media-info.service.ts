@@ -140,11 +140,31 @@ export function normalizeMediaMetadata(
   originalUrl: string,
   platform: SupportedPlatform
 ): VideoMetadata {
-  const formats = Array.isArray(rawInfo.formats) ? rawInfo.formats : [];
+  // If extractor returned a playlist of entries (e.g., generic extractor on Snapchat public stories),
+  // select the video entry that contains downloadable video formats or an mp4 stream
+  let effectiveInfo = rawInfo;
+  if (Array.isArray(rawInfo.entries) && rawInfo.entries.length > 0) {
+    const videoEntry =
+      rawInfo.entries.find((e) =>
+        e.ext === 'mp4' ||
+        e.formats?.some((f) => f.ext === 'mp4' || (f.vcodec && f.vcodec !== 'none'))
+      ) || rawInfo.entries[0];
+
+    if (videoEntry) {
+      effectiveInfo = {
+        ...rawInfo,
+        ...videoEntry,
+        title: rawInfo.title || videoEntry.title,
+        thumbnail: videoEntry.thumbnail || rawInfo.thumbnail,
+      };
+    }
+  }
+
+  const formats = Array.isArray(effectiveInfo.formats) ? effectiveInfo.formats : [];
   const videoFormats = formats.filter(isVideoFormat);
 
   // If extractor returned neither video formats nor direct media ext, reject
-  if (videoFormats.length === 0 && !rawInfo.ext && !rawInfo.url) {
+  if (videoFormats.length === 0 && !effectiveInfo.ext && !effectiveInfo.url) {
     throw new AppError(
       'No downloadable video stream was found at this URL.',
       422,
@@ -158,11 +178,11 @@ export function normalizeMediaMetadata(
   const maxHeight =
     heights.length > 0
       ? Math.max(...heights)
-      : typeof rawInfo.height === 'number' && rawInfo.height > 0
-        ? rawInfo.height
+      : typeof effectiveInfo.height === 'number' && effectiveInfo.height > 0
+        ? effectiveInfo.height
         : null;
 
-  const fallbackSize = rawInfo.filesize ?? rawInfo.filesize_approx ?? null;
+  const fallbackSize = effectiveInfo.filesize ?? effectiveInfo.filesize_approx ?? null;
 
   let watermarkFreeAvailable = platform !== 'tiktok';
   let cleanTikTokFormats: RawYtDlpFormat[] = [];
@@ -264,42 +284,52 @@ export function normalizeMediaMetadata(
   }
 
   const rawTitle =
-    rawInfo.title?.trim() ||
-    rawInfo.fulltitle?.trim() ||
-    rawInfo.description?.trim().split('\n')[0]?.slice(0, 90) ||
+    effectiveInfo.title?.trim() ||
+    effectiveInfo.fulltitle?.trim() ||
+    effectiveInfo.description?.trim().split('\n')[0]?.slice(0, 90) ||
     `${platform.toUpperCase()} Video`;
 
+  const parsedOriginal = (() => {
+    try {
+      return new URL(originalUrl);
+    } catch {
+      return null;
+    }
+  })();
+  const urlCreatorMatch = parsedOriginal?.pathname.match(/^\/@([^/]+)/);
+
   const uploader =
-    rawInfo.uploader?.trim() ||
-    rawInfo.creator?.trim() ||
-    rawInfo.channel?.trim() ||
-    (rawInfo.uploader_id ? `@${rawInfo.uploader_id.replace(/^@/, '')}` : null);
+    effectiveInfo.uploader?.trim() ||
+    effectiveInfo.creator?.trim() ||
+    effectiveInfo.channel?.trim() ||
+    (effectiveInfo.uploader_id ? `@${effectiveInfo.uploader_id.replace(/^@/, '')}` : null) ||
+    (urlCreatorMatch ? urlCreatorMatch[1] : null);
 
   const duration =
-    typeof rawInfo.duration === 'number' &&
-    Number.isFinite(rawInfo.duration) &&
-    rawInfo.duration >= 0
-      ? Math.round(rawInfo.duration)
+    typeof effectiveInfo.duration === 'number' &&
+    Number.isFinite(effectiveInfo.duration) &&
+    effectiveInfo.duration >= 0
+      ? Math.round(effectiveInfo.duration)
       : null;
 
   const previewUrl = selectBrowserPlayablePreviewUrl(
-    rawInfo,
+    effectiveInfo,
     videoFormats,
     originalUrl,
     platform
   );
 
   return {
-    id: String(rawInfo.id || Date.now()),
+    id: String(effectiveInfo.id || Date.now()),
     url: originalUrl,
-    resolvedUrl: rawInfo.webpage_url || originalUrl,
+    resolvedUrl: effectiveInfo.webpage_url || originalUrl,
     previewUrl,
     title: rawTitle,
-    thumbnail: sanitizeHttpsThumbnail(rawInfo),
+    thumbnail: sanitizeHttpsThumbnail(effectiveInfo),
     duration,
     uploader: uploader || null,
     platform,
-    extractor: rawInfo.extractor_key || rawInfo.extractor || platform,
+    extractor: effectiveInfo.extractor_key || effectiveInfo.extractor || platform,
     watermarkFreeAvailable,
     options,
   };

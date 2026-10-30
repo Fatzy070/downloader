@@ -327,7 +327,7 @@ export function buildFormatSelector(
  */
 export async function extractMediaInfo(
   url: string,
-  timeoutMs = Number(process.env.EXTRACTION_TIMEOUT_MS) || 30000
+  timeoutMs = Number(process.env.EXTRACTION_TIMEOUT_MS) || 45000
 ): Promise<RawYtDlpInfo> {
   const binary = resolveYtDlpBinary();
   const ffmpegPath = resolveFfmpegBinary();

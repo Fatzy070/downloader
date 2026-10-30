@@ -84,6 +84,8 @@ export interface RawYtDlpInfo {
   filesize?: number | null;
   filesize_approx?: number | null;
   formats?: RawYtDlpFormat[];
+  _type?: string;
+  entries?: RawYtDlpInfo[];
 }
 
 export interface DownloadStreamHandle {

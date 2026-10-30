@@ -87,6 +87,24 @@ describe('URL Validation & Network Safety', () => {
     );
     expect(snapchatStoryHyphenRedirectHop.platform).toBe('snapchat');
 
+    const snapchatStoryShareLink = validateAndClassifyUrl('https://snapchat.com/t/8goGbzUQ');
+    expect(snapchatStoryShareLink.platform).toBe('snapchat');
+
+    const snapchatPublicStorySnap = validateAndClassifyUrl(
+      'https://www.snapchat.com/@ppocolee/Bw_N5xUhTu-gdSvKykP8SgAAgcmRudXV1YW9yAaF_xbgPAaF_xbQwAAAAAA'
+    );
+    expect(snapchatPublicStorySnap.platform).toBe('snapchat');
+
+    const snapchatStoryUserHop = validateAndClassifyUrl(
+      'https://story.snapchat.com/u/ppocolee/Bw_N5xUhTu-gdSvKykP8SgAAgcmRudXV1YW9yAaF_xbgPAaF_xbQwAAAAAA'
+    );
+    expect(snapchatStoryUserHop.platform).toBe('snapchat');
+
+    const snapchatAddHop = validateAndClassifyUrl(
+      'https://www.snapchat.com/add/ppocolee/Bw_N5xUhTu-gdSvKykP8SgAAgcmRudXV1YW9yAaF_xbgPAaF_xbQwAAAAAA'
+    );
+    expect(snapchatAddHop.platform).toBe('snapchat');
+
     const directMp4 = validateAndClassifyUrl(
       'https://cdn.example.org/media/sample-clip.mp4'
     );
@@ -96,23 +114,27 @@ describe('URL Validation & Network Safety', () => {
   it('rejects unsupported Snapchat paths (Stories, profiles, add links, non-Spotlight subdomains)', () => {
     expect(() =>
       validateAndClassifyUrl('https://www.snapchat.com/add/someuser')
-    ).toThrowError(/Only public Snapchat Spotlight video links/);
+    ).toThrowError(/Only public Snapchat Spotlight and story video links/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.snapchat.com/@ppocolee')
+    ).toThrowError(/Only public Snapchat Spotlight and story video links/);
 
     expect(() =>
       validateAndClassifyUrl('https://www.snapchat.com/s/story123')
-    ).toThrowError(/Only public Snapchat Spotlight video links/);
+    ).toThrowError(/Only public Snapchat Spotlight and story video links/);
 
     expect(() =>
       validateAndClassifyUrl('https://www.snapchat.com/p/profile123')
-    ).toThrowError(/Only public Snapchat Spotlight video links/);
+    ).toThrowError(/Only public Snapchat Spotlight and story video links/);
 
     expect(() =>
       validateAndClassifyUrl('https://www.snapchat.com/spotlight/')
-    ).toThrowError(/Only public Snapchat Spotlight video links/);
+    ).toThrowError(/Only public Snapchat Spotlight and story video links/);
 
     expect(() =>
       validateAndClassifyUrl('https://accounts.snapchat.com/spotlight/W7_EDlXWTBiX')
-    ).toThrowError(/Only public Snapchat Spotlight video links/);
+    ).toThrowError(/Only public Snapchat Spotlight and story video links/);
 
     expect(() =>
       validateAndClassifyUrl('https://evil-snapchat.com/spotlight/W7_EDlXWTBiX')
@@ -289,7 +311,7 @@ describe('URL Validation & Network Safety', () => {
     );
     await expect(
       verifyNetworkSafetyAndRedirects('https://t.snapchat.com/AbCdEf12')
-    ).rejects.toThrow(/Only public Snapchat Spotlight video links/);
+    ).rejects.toThrow(/Only public Snapchat Spotlight and story video links/);
 
     // Reject if short link redirects to a private IP (SSRF)
     fetchSpy.mockResolvedValueOnce(
@@ -372,7 +394,7 @@ describe('URL Validation & Network Safety', () => {
     );
     await expect(
       verifyNetworkSafetyAndRedirects('https://snapchat.com/t/fc6R00hu')
-    ).rejects.toThrow(/Only public Snapchat Spotlight video links/);
+    ).rejects.toThrow(/Only public Snapchat Spotlight and story video links/);
 
     // Reject if /t/ link redirects to an internal host or SSRF target
     fetchSpy.mockResolvedValueOnce(
@@ -453,6 +475,64 @@ describe('URL Validation & Network Safety', () => {
       'https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYanJxeHJ5eWh0AaFAML2WAaFAMI-3AAAAAQ'
     );
     expect(directCreatorSpotlight.platform).toBe('snapchat');
+
+    fetchSpy.mockRestore();
+    dnsSpy.mockRestore();
+  });
+
+  it('resolves Snapchat public story short links (/t/8goGbzUQ) through multi-hop story redirects', async () => {
+    const dnsSpy = vi
+      .spyOn(dns, 'lookup')
+      .mockResolvedValue([{ address: '34.110.180.1', family: 4 }] as never);
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      // Step 1: snapchat.com/t/8goGbzUQ -> 301 www.snapchat.com:443/t/8goGbzUQ
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 301,
+          headers: {
+            location: 'https://www.snapchat.com:443/t/8goGbzUQ',
+          },
+        })
+      )
+      // Step 2: www.snapchat.com:443/t/8goGbzUQ -> 303 story.snapchat.com/u/ppocolee/...
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 303,
+          headers: {
+            location:
+              'https://story.snapchat.com/u/ppocolee/Bw_N5xUhTu-gdSvKykP8SgAAgcmRudXV1YW9yAaF_xbgPAaF_xbQwAAAAAA?invite_id=xkkb4JW8&locale=en_AE&share_id=nMcgxfKuT8CSFtroikyapQ&sid=2c2f445e2cc14af18fe7a83d5dcc2f16',
+          },
+        })
+      )
+      // Step 3: story.snapchat.com/u/ppocolee/... -> 301 www.snapchat.com/add/ppocolee/...
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 301,
+          headers: {
+            location:
+              'https://www.snapchat.com/add/ppocolee/Bw_N5xUhTu-gdSvKykP8SgAAgcmRudXV1YW9yAaF_xbgPAaF_xbQwAAAAAA?locale=en_AE&sid=2c2f445e2cc14af18fe7a83d5dcc2f16&share_id=nMcgxfKuT8CSFtroikyapQ&invite_id=xkkb4JW8',
+          },
+        })
+      )
+      // Step 4: www.snapchat.com/add/ppocolee/... -> 308 /@ppocolee/...
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 308,
+          headers: {
+            location:
+              '/@ppocolee/Bw_N5xUhTu-gdSvKykP8SgAAgcmRudXV1YW9yAaF_xbgPAaF_xbQwAAAAAA?locale=en_AE&sid=2c2f445e2cc14af18fe7a83d5dcc2f16&share_id=nMcgxfKuT8CSFtroikyapQ&invite_id=xkkb4JW8',
+          },
+        })
+      );
+
+    const resolved = await verifyNetworkSafetyAndRedirects(
+      'https://snapchat.com/t/8goGbzUQ'
+    );
+    expect(resolved.url).toBe(
+      'https://www.snapchat.com/@ppocolee/Bw_N5xUhTu-gdSvKykP8SgAAgcmRudXV1YW9yAaF_xbgPAaF_xbQwAAAAAA'
+    );
+    expect(resolved.platform).toBe('snapchat');
 
     fetchSpy.mockRestore();
     dnsSpy.mockRestore();
@@ -618,6 +698,47 @@ describe('Metadata Normalization & Watermark Handling', () => {
       'https://cf-st.sc-cdn.net/d/kKJHIR1QAznRKK9jgYYDq.27.IRZXSOY?mo=123'
     );
     expect(snapchatMetadata.options[0]?.id).toBe('best');
+
+    // Snapchat public story snap with playlist entries (e.g., HTML5 embeds via GenericIE)
+    const snapchatStoryMetadata = normalizeMediaMetadata(
+      {
+        id: 'Bw_N5xUhTu-gdSvKykP8SgAAgcmRudXV1YW9yAaF_xbgPAaF_xbQwAAAAAA',
+        title: 'View this Snap from Pocolee21 on Snapchat!',
+        _type: 'playlist',
+        entries: [
+          {
+            id: 'snap-1',
+            ext: 'IRZXSOY',
+            url: 'https://cf-st.sc-cdn.net/d/aGdezCaPOqbACymJZ9jZg.1034.IRZXSOY',
+          },
+          {
+            id: 'snap-2',
+            ext: 'mp4',
+            title: 'View this Snap from Pocolee21 on Snapchat! (3)',
+            url: 'https://cf-st.sc-cdn.net/d/SotjL8VTn7RhMXtA3RHgn.1034.IRZXSOY?mo=123',
+            formats: [
+              {
+                format_id: '0',
+                ext: 'mp4',
+                url: 'https://cf-st.sc-cdn.net/d/SotjL8VTn7RhMXtA3RHgn.1034.IRZXSOY?mo=123',
+                vcodec: 'h264',
+                acodec: 'aac',
+                height: 720,
+              },
+            ],
+          },
+        ],
+      },
+      'https://www.snapchat.com/@ppocolee/Bw_N5xUhTu-gdSvKykP8SgAAgcmRudXV1YW9yAaF_xbgPAaF_xbQwAAAAAA',
+      'snapchat'
+    );
+
+    expect(snapchatStoryMetadata.platform).toBe('snapchat');
+    expect(snapchatStoryMetadata.uploader).toBe('ppocolee');
+    expect(snapchatStoryMetadata.previewUrl).toBe(
+      'https://cf-st.sc-cdn.net/d/SotjL8VTn7RhMXtA3RHgn.1034.IRZXSOY?mo=123'
+    );
+    expect(snapchatStoryMetadata.options[0]?.id).toBe('best');
   });
 });
 

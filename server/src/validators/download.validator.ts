@@ -276,6 +276,7 @@ export function validateAndClassifyUrl(rawUrl: string): ValidatedMediaUrl {
 
   // Enforce strict Snapchat URL format matching yt-dlp's SnapchatSpotlightIE (_VALID_URL)
   // plus Snapchat share short-links (snapchat.com/t/<code>, t.snapchat.com/<code>, story.snapchat.com/o/<code>)
+  // and public creator stories/snaps (snapchat.com/@<creator>/<snap_id>)
   if (platform === 'snapchat') {
     const host = parsed.hostname.toLowerCase();
     const isSpotlightHost = host === 'snapchat.com' || host === 'www.snapchat.com';
@@ -283,18 +284,22 @@ export function validateAndClassifyUrl(rawUrl: string): ValidatedMediaUrl {
     const isStoryHost = host === 'story.snapchat.com';
 
     const isSpotlightPath = /^\/(?:@[^/]+\/)?spotlight\/[A-Za-z0-9_-]+\/?$/i.test(parsed.pathname);
+    const isPublicSnapPath = /^\/@[^/]+\/[A-Za-z0-9_-]+\/?$/i.test(parsed.pathname);
     const isWebShortPath = /^\/t\/[A-Za-z0-9_-]+\/?$/i.test(parsed.pathname);
+    const isAddSnapHop = /^\/add\/[^/]+\/[A-Za-z0-9_-]+\/?$/i.test(parsed.pathname);
+
     const isShortDomainPath = /^\/[A-Za-z0-9_-]+\/?$/i.test(parsed.pathname);
-    const isStoryPath = /^\/o\/[A-Za-z0-9_-]+\/?$/i.test(parsed.pathname);
+    const isStorySpotlightHop = /^\/o\/[A-Za-z0-9_-]+\/?$/i.test(parsed.pathname);
+    const isStoryUserHop = /^\/u\/[^/]+\/[A-Za-z0-9_-]+\/?$/i.test(parsed.pathname);
 
     const isValidSnapchatUrl =
-      (isSpotlightHost && (isSpotlightPath || isWebShortPath)) ||
+      (isSpotlightHost && (isSpotlightPath || isPublicSnapPath || isWebShortPath || isAddSnapHop)) ||
       (isShortHost && isShortDomainPath) ||
-      (isStoryHost && isStoryPath);
+      (isStoryHost && (isStorySpotlightHop || isStoryUserHop));
 
     if (!isValidSnapchatUrl) {
       throw new AppError(
-        'Unsupported Snapchat URL. Only public Snapchat Spotlight video links (https://www.snapchat.com/spotlight/<id>) are supported; Stories, profiles, and private Snaps are not supported.',
+        'Unsupported Snapchat URL. Only public Snapchat Spotlight and story video links are supported; private Snaps are not supported.',
         400,
         'UNSUPPORTED_SNAPCHAT_URL'
       );
@@ -320,8 +325,11 @@ function isShortLinkUrl(parsedUrl: URL): boolean {
     return true;
   }
   if (matchesDomainBoundary(host, 'snapchat.com')) {
-    // Snapchat share links (/t/...) and intermediate story routing (/o/...)
+    // Snapchat share links (/t/...) and intermediate redirect hops (/o/..., /u/.../..., /add/.../...)
     if (/^\/(?:t|o)\/[A-Za-z0-9_-]+/i.test(parsedUrl.pathname)) {
+      return true;
+    }
+    if (/^\/(?:u|add)\/[^/]+\/[A-Za-z0-9_-]+/i.test(parsedUrl.pathname)) {
       return true;
     }
   }
@@ -446,19 +454,30 @@ export async function verifyNetworkSafetyAndRedirects(
     const spotlightMatch = currentValidated.parsedUrl.pathname.match(
       /^\/(?:@[^/]+\/)?spotlight\/([A-Za-z0-9_-]+)\/?$/i
     );
-    if (!spotlightMatch) {
-      throw new AppError(
-        'Snapchat short link did not resolve to a public Snapchat Spotlight video URL.',
-        400,
-        'UNSUPPORTED_SNAPCHAT_URL'
+    if (spotlightMatch) {
+      // Normalize to canonical spotlight URL so yt-dlp invokes its dedicated SnapchatSpotlight extractor
+      const spotlightId = spotlightMatch[1];
+      currentValidated = validateAndClassifyUrl(
+        `https://www.snapchat.com/spotlight/${spotlightId}`
       );
+    } else {
+      const publicSnapMatch = currentValidated.parsedUrl.pathname.match(
+        /^\/(@[^/]+)\/([A-Za-z0-9_-]+)\/?$/i
+      );
+      if (publicSnapMatch) {
+        const creator = publicSnapMatch[1];
+        const snapId = publicSnapMatch[2];
+        currentValidated = validateAndClassifyUrl(
+          `https://www.snapchat.com/${creator}/${snapId}`
+        );
+      } else {
+        throw new AppError(
+          'Snapchat short link did not resolve to a public Snapchat Spotlight or story video URL.',
+          400,
+          'UNSUPPORTED_SNAPCHAT_URL'
+        );
+      }
     }
-
-    // Normalize to canonical spotlight URL so yt-dlp invokes its dedicated SnapchatSpotlight extractor
-    const spotlightId = spotlightMatch[1];
-    currentValidated = validateAndClassifyUrl(
-      `https://www.snapchat.com/spotlight/${spotlightId}`
-    );
   }
 
   return currentValidated;
