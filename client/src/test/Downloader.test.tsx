@@ -63,6 +63,8 @@ describe('Personal Universal Video Downloader Frontend', () => {
     expect(screen.getByTestId('platform-badge-tiktok')).toBeInTheDocument();
     expect(screen.getByTestId('platform-badge-instagram')).toBeInTheDocument();
     expect(screen.getByTestId('platform-badge-x')).toBeInTheDocument();
+    expect(screen.getByTestId('platform-badge-facebook')).toBeInTheDocument();
+    expect(screen.getByTestId('platform-badge-linkedin')).toBeInTheDocument();
     expect(screen.getByTestId('platform-badge-snapchat')).toBeInTheDocument();
     expect(screen.getByTestId('platform-badge-direct')).toBeInTheDocument();
   });

@@ -151,6 +151,8 @@ export function mapExtractorStderrToAppError(stderr: string): AppError {
     lower.includes('login required') ||
     lower.includes('sign in to confirm') ||
     lower.includes('logged-in') ||
+    lower.includes('log in') ||
+    lower.includes('login') ||
     lower.includes('authentication') ||
     lower.includes('cookies') ||
     lower.includes('only available for registered users')
@@ -180,6 +182,9 @@ export function mapExtractorStderrToAppError(stderr: string): AppError {
     lower.includes('status is unavailable') ||
     lower.includes('no video could be found') ||
     lower.includes('there is no video in this') ||
+    lower.includes('unable to extract video') ||
+    lower.includes("content isn't available") ||
+    lower.includes('content is not available') ||
     lower.includes('404') ||
     lower.includes('not found') ||
     lower.includes('has been removed') ||

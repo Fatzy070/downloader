@@ -2,6 +2,8 @@ export type SupportedPlatform =
   | 'tiktok'
   | 'instagram'
   | 'x'
+  | 'facebook'
+  | 'linkedin'
   | 'snapchat'
   | 'direct';
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Film, Ghost, Globe, Instagram, Music2, Twitter } from 'lucide-react';
+import { Facebook, Film, Ghost, Globe, Instagram, Linkedin, Music2, Twitter } from 'lucide-react';
 import type { SupportedPlatform } from '../types/downloader';
 
 interface PlatformBadgeProps {
@@ -32,6 +32,18 @@ const PLATFORM_CONFIG: Record<
     classes:
       'bg-sky-500/10 text-sky-700 border-sky-500/20 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30',
     icon: Twitter,
+  },
+  facebook: {
+    label: 'Facebook',
+    classes:
+      'bg-blue-600/10 text-blue-700 border-blue-600/20 dark:bg-blue-600/15 dark:text-blue-300 dark:border-blue-600/30',
+    icon: Facebook,
+  },
+  linkedin: {
+    label: 'LinkedIn',
+    classes:
+      'bg-sky-700/10 text-sky-800 border-sky-700/20 dark:bg-sky-600/15 dark:text-sky-300 dark:border-sky-500/30',
+    icon: Linkedin,
   },
   snapchat: {
     label: 'Snapchat',

@@ -111,6 +111,62 @@ describe('URL Validation & Network Safety', () => {
     expect(directMp4.platform).toBe('direct');
   });
 
+  it('accepts valid HTTPS URLs for Facebook Watch, Reels, Videos, Shares, and short links', () => {
+    const watchUrl = validateAndClassifyUrl('https://www.facebook.com/watch/?v=1195289147628387');
+    expect(watchUrl.platform).toBe('facebook');
+
+    const watchLiveUrl = validateAndClassifyUrl('https://www.facebook.com/watch/live/?v=1195289147628387');
+    expect(watchLiveUrl.platform).toBe('facebook');
+
+    const watchPathId = validateAndClassifyUrl('https://www.facebook.com/watch/1195289147628387/');
+    expect(watchPathId.platform).toBe('facebook');
+
+    const reelUrl = validateAndClassifyUrl('https://www.facebook.com/reel/1195289147628387');
+    expect(reelUrl.platform).toBe('facebook');
+
+    const reelsUrl = validateAndClassifyUrl('https://www.facebook.com/reels/1195289147628387/');
+    expect(reelsUrl.platform).toBe('facebook');
+
+    const userReel = validateAndClassifyUrl('https://www.facebook.com/username/reel/1195289147628387');
+    expect(userReel.platform).toBe('facebook');
+
+    const userVideos = validateAndClassifyUrl('https://www.facebook.com/BeastCampTraining/videos/1195289147628387/');
+    expect(userVideos.platform).toBe('facebook');
+
+    const userCategoryVideos = validateAndClassifyUrl('https://www.facebook.com/page/videos/training/1195289147628387');
+    expect(userCategoryVideos.platform).toBe('facebook');
+
+    const fbWatchShort = validateAndClassifyUrl('https://fb.watch/abcdef123/');
+    expect(fbWatchShort.platform).toBe('facebook');
+
+    const fbGgShort = validateAndClassifyUrl('https://fb.gg/v/abcdef123');
+    expect(fbGgShort.platform).toBe('facebook');
+
+    const shareVideo = validateAndClassifyUrl('https://www.facebook.com/share/v/19Z9rS884k/');
+    expect(shareVideo.platform).toBe('facebook');
+
+    const shareReel = validateAndClassifyUrl('https://www.facebook.com/share/r/19Z9rS884k/');
+    expect(shareReel.platform).toBe('facebook');
+
+    const shareDirect = validateAndClassifyUrl('https://www.facebook.com/share/19Z9rS884k/');
+    expect(shareDirect.platform).toBe('facebook');
+
+    const videoPhp = validateAndClassifyUrl('https://www.facebook.com/video.php?v=1195289147628387');
+    expect(videoPhp.platform).toBe('facebook');
+
+    const permalinkPhp = validateAndClassifyUrl('https://www.facebook.com/permalink.php?story_fbid=1195289147628387&id=12345');
+    expect(permalinkPhp.platform).toBe('facebook');
+
+    const userPost = validateAndClassifyUrl('https://www.facebook.com/username/posts/1195289147628387/');
+    expect(userPost.platform).toBe('facebook');
+
+    const webFacebook = validateAndClassifyUrl('https://web.facebook.com/watch/?v=1195289147628387');
+    expect(webFacebook.platform).toBe('facebook');
+
+    const mFacebook = validateAndClassifyUrl('https://m.facebook.com/reel/1195289147628387');
+    expect(mFacebook.platform).toBe('facebook');
+  });
+
   it('rejects unsupported Snapchat paths (Stories, profiles, add links, non-Spotlight subdomains)', () => {
     expect(() =>
       validateAndClassifyUrl('https://www.snapchat.com/add/someuser')
@@ -138,6 +194,113 @@ describe('URL Validation & Network Safety', () => {
 
     expect(() =>
       validateAndClassifyUrl('https://evil-snapchat.com/spotlight/W7_EDlXWTBiX')
+    ).toThrowError(/Unsupported URL or platform/);
+  });
+
+  it('rejects unsupported Facebook paths (profiles, groups, bare feeds, non-video pages)', () => {
+    expect(() =>
+      validateAndClassifyUrl('https://www.facebook.com/zuck')
+    ).toThrowError(/Unsupported Facebook URL/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.facebook.com/groups/12345678')
+    ).toThrowError(/Unsupported Facebook URL/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.facebook.com/watch')
+    ).toThrowError(/Unsupported Facebook URL/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.facebook.com/watch/')
+    ).toThrowError(/Unsupported Facebook URL/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.facebook.com/marketplace')
+    ).toThrowError(/Unsupported Facebook URL/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.facebook.com/settings')
+    ).toThrowError(/Unsupported Facebook URL/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.facebook.com/reel')
+    ).toThrowError(/Unsupported Facebook URL/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.facebook.com/reel/')
+    ).toThrowError(/Unsupported Facebook URL/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://evil-facebook.com/watch/?v=1195289147628387')
+    ).toThrowError(/Unsupported URL or platform/);
+  });
+
+  it('accepts valid HTTPS URLs for LinkedIn public video posts, feed updates, and lnkd.in short links', () => {
+    const postActivity = validateAndClassifyUrl(
+      'https://www.linkedin.com/posts/the-mathworks_2_what-is-mathworks-cloud-center-activity-7151241570371948544-4Gu7'
+    );
+    expect(postActivity.platform).toBe('linkedin');
+
+    const postUgc = validateAndClassifyUrl(
+      'https://www.linkedin.com/posts/mishalkhawaja_sendinblueviews-toronto-digitalmarketing-ugcPost-6850898786781339649-mM20'
+    );
+    expect(postUgc.platform).toBe('linkedin');
+
+    const feedActivity = validateAndClassifyUrl(
+      'https://www.linkedin.com/feed/update/urn:li:activity:7151241570371948544/?utm_source=share&utm_medium=member_desktop'
+    );
+    expect(feedActivity.platform).toBe('linkedin');
+
+    const feedUgc = validateAndClassifyUrl(
+      'https://www.linkedin.com/feed/update/urn:li:ugcPost:6850898786781339649'
+    );
+    expect(feedUgc.platform).toBe('linkedin');
+
+    const feedShare = validateAndClassifyUrl(
+      'https://www.linkedin.com/feed/update/urn:li:share:7151241570371948544/'
+    );
+    expect(feedShare.platform).toBe('linkedin');
+
+    const regionalSubdomain = validateAndClassifyUrl(
+      'https://uk.linkedin.com/posts/the-mathworks_2_what-is-mathworks-cloud-center-activity-7151241570371948544-4Gu7'
+    );
+    expect(regionalSubdomain.platform).toBe('linkedin');
+
+    const shortLink = validateAndClassifyUrl('https://lnkd.in/dR8x9Yz');
+    expect(shortLink.platform).toBe('linkedin');
+  });
+
+  it('rejects unsupported LinkedIn paths (profiles, company pages, jobs, events, learning courses, bare feeds)', () => {
+    expect(() =>
+      validateAndClassifyUrl('https://www.linkedin.com/in/satyanadella')
+    ).toThrowError(/Unsupported LinkedIn URL/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.linkedin.com/company/microsoft')
+    ).toThrowError(/Unsupported LinkedIn URL/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.linkedin.com/jobs/view/3812345678')
+    ).toThrowError(/Unsupported LinkedIn URL/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.linkedin.com/events/7084656651378536448/comments/')
+    ).toThrowError(/Unsupported LinkedIn URL/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.linkedin.com/learning/python-essential-training')
+    ).toThrowError(/Unsupported LinkedIn URL/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.linkedin.com/feed/')
+    ).toThrowError(/Unsupported LinkedIn URL/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://www.linkedin.com/posts/')
+    ).toThrowError(/Unsupported LinkedIn URL/);
+
+    expect(() =>
+      validateAndClassifyUrl('https://evil-linkedin.com/posts/user-activity-7151241570371948544-4Gu7')
     ).toThrowError(/Unsupported URL or platform/);
   });
 
@@ -537,6 +700,136 @@ describe('URL Validation & Network Safety', () => {
     fetchSpy.mockRestore();
     dnsSpy.mockRestore();
   });
+
+  it('resolves fb.watch and facebook.com/share links to canonical Facebook video URLs and handles private redirects safely', async () => {
+    const dnsSpy = vi
+      .spyOn(dns, 'lookup')
+      .mockResolvedValue([{ address: '157.240.241.35', family: 4 }] as never);
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      // Step 1: fb.watch/xyz123 -> 302 https://www.facebook.com/watch/?v=1195289147628387
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: {
+            location: 'https://www.facebook.com/watch/?v=1195289147628387',
+          },
+        })
+      );
+
+    const resolvedWatch = await verifyNetworkSafetyAndRedirects('https://fb.watch/xyz123/');
+    expect(resolvedWatch.url).toBe('https://www.facebook.com/watch/?v=1195289147628387');
+    expect(resolvedWatch.platform).toBe('facebook');
+
+    // Step 2: facebook.com/share/v/xyz123 -> 302 https://web.facebook.com/reel/1195289147628387?_rdc=1&_rdr
+    fetchSpy.mockResolvedValueOnce(
+      new Response(null, {
+        status: 302,
+        headers: {
+          location: 'https://web.facebook.com/reel/1195289147628387?_rdc=1&_rdr',
+        },
+      })
+    );
+
+    const resolvedShare = await verifyNetworkSafetyAndRedirects('https://www.facebook.com/share/v/xyz123/');
+    expect(resolvedShare.url).toBe('https://web.facebook.com/reel/1195289147628387?_rdc=1&_rdr');
+    expect(resolvedShare.platform).toBe('facebook');
+
+    // Step 3: Short link redirects to /login.php -> throws 403 CONTENT_PRIVATE_OR_RESTRICTED
+    fetchSpy.mockResolvedValueOnce(
+      new Response(null, {
+        status: 302,
+        headers: {
+          location: 'https://www.facebook.com/login.php?next=https%3A%2F%2Fwww.facebook.com%2Fprivate',
+        },
+      })
+    );
+
+    await expect(
+      verifyNetworkSafetyAndRedirects('https://fb.watch/private123/')
+    ).rejects.toThrow(/This Facebook video is private or requires login/);
+
+    // Step 4: Short link redirects to SSRF private target
+    fetchSpy.mockResolvedValueOnce(
+      new Response(null, {
+        status: 302,
+        headers: {
+          location: 'https://169.254.169.254/latest/meta-data',
+        },
+      })
+    );
+
+    await expect(
+      verifyNetworkSafetyAndRedirects('https://fb.watch/malicious/')
+    ).rejects.toThrow(/Local, private, and internal network destinations are forbidden/);
+
+    fetchSpy.mockRestore();
+    dnsSpy.mockRestore();
+  });
+
+  it('resolves lnkd.in short links, normalizes regional LinkedIn subdomains, and blocks authwall/SSRF redirects', async () => {
+    const dnsSpy = vi
+      .spyOn(dns, 'lookup')
+      .mockResolvedValue([{ address: '108.174.10.10', family: 4 }] as never);
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      // Step 1: lnkd.in/dR8x9Yz -> 301 https://www.linkedin.com/posts/the-mathworks_2_what-is-mathworks-cloud-center-activity-7151241570371948544-4Gu7
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 301,
+          headers: {
+            location:
+              'https://www.linkedin.com/posts/the-mathworks_2_what-is-mathworks-cloud-center-activity-7151241570371948544-4Gu7',
+          },
+        })
+      );
+
+    const resolvedShort = await verifyNetworkSafetyAndRedirects('https://lnkd.in/dR8x9Yz');
+    expect(resolvedShort.url).toBe(
+      'https://www.linkedin.com/posts/the-mathworks_2_what-is-mathworks-cloud-center-activity-7151241570371948544-4Gu7'
+    );
+    expect(resolvedShort.platform).toBe('linkedin');
+
+    // Step 2: Regional subdomain uk.linkedin.com normalizes to www.linkedin.com
+    const resolvedRegional = await verifyNetworkSafetyAndRedirects(
+      'https://uk.linkedin.com/posts/the-mathworks_2_what-is-mathworks-cloud-center-activity-7151241570371948544-4Gu7'
+    );
+    expect(resolvedRegional.url).toBe(
+      'https://www.linkedin.com/posts/the-mathworks_2_what-is-mathworks-cloud-center-activity-7151241570371948544-4Gu7'
+    );
+    expect(resolvedRegional.platform).toBe('linkedin');
+
+    // Step 3: Short link redirects to /authwall -> throws 403 CONTENT_PRIVATE_OR_RESTRICTED
+    fetchSpy.mockResolvedValueOnce(
+      new Response(null, {
+        status: 302,
+        headers: {
+          location: 'https://www.linkedin.com/authwall?trk=bf&original_referer=',
+        },
+      })
+    );
+
+    await expect(
+      verifyNetworkSafetyAndRedirects('https://lnkd.in/privatePost')
+    ).rejects.toThrow(/This LinkedIn post is private or requires authentication/);
+
+    // Step 4: Short link redirects to SSRF private target -> throws 400 FORBIDDEN_HOST
+    fetchSpy.mockResolvedValueOnce(
+      new Response(null, {
+        status: 301,
+        headers: {
+          location: 'https://127.0.0.1/internal',
+        },
+      })
+    );
+
+    await expect(
+      verifyNetworkSafetyAndRedirects('https://lnkd.in/ssrfLink')
+    ).rejects.toThrow(/Local, private, and internal network destinations are forbidden/);
+
+    fetchSpy.mockRestore();
+    dnsSpy.mockRestore();
+  });
 });
 
 describe('Filename Sanitization & Content-Disposition', () => {
@@ -616,6 +909,92 @@ describe('Metadata Normalization & Watermark Handling', () => {
     expect(metadata.watermarkFreeAvailable).toBe(false);
     expect(metadata.options.some((o) => o.id === 'nowatermark')).toBe(false);
     expect(metadata.previewUrl).toBeNull();
+  });
+
+  it('normalizes Facebook video metadata with progressive formats and previewUrl', () => {
+    const metadata = normalizeMediaMetadata(
+      {
+        id: '1195289147628387',
+        title: 'Beast Camp Training Session',
+        uploader: 'Beast Camp Training',
+        duration: 9.58,
+        thumbnail: 'https://scontent.xx.fbcdn.net/v/t15.5256-10/thumb.jpg',
+        extractor_key: 'FacebookReel',
+        formats: [
+          {
+            format_id: 'sd',
+            format_note: 'sd',
+            ext: 'mp4',
+            vcodec: 'avc1.4d401f',
+            acodec: 'mp4a.40.2',
+            height: 480,
+            url: 'https://video.xx.fbcdn.net/v/t42.1797-2/sd.mp4?token=123',
+            filesize: 1_200_000,
+          },
+          {
+            format_id: 'hd',
+            format_note: 'hd',
+            ext: 'mp4',
+            vcodec: 'avc1.640028',
+            acodec: 'mp4a.40.2',
+            height: 720,
+            url: 'https://video.xx.fbcdn.net/v/t42.1797-2/hd.mp4?token=123',
+            filesize: 2_800_000,
+          },
+        ],
+      },
+      'https://www.facebook.com/reel/1195289147628387',
+      'facebook'
+    );
+
+    expect(metadata.platform).toBe('facebook');
+    expect(metadata.title).toBe('Beast Camp Training Session');
+    expect(metadata.uploader).toBe('Beast Camp Training');
+    expect(metadata.duration).toBe(10);
+    expect(metadata.previewUrl).toBe('https://video.xx.fbcdn.net/v/t42.1797-2/hd.mp4?token=123');
+    expect(metadata.options.some((o) => o.id === 'best')).toBe(true);
+    expect(metadata.options.some((o) => o.id === 'hd_720p')).toBe(true);
+    expect(metadata.options.some((o) => o.id === 'sd_480p')).toBe(true);
+    expect(metadata.options.some((o) => o.id === 'audio')).toBe(true);
+  });
+
+  it('normalizes LinkedIn video metadata with progressive MP4 previewUrl and author fallback from title', () => {
+    const metadata = normalizeMediaMetadata(
+      {
+        id: '7151241570371948544',
+        title: 'What Is MathWorks Cloud Center? | MathWorks',
+        uploader: undefined,
+        thumbnail: 'https://static.licdn.com/aero-v1/sc/h/c45fy346jw096z9pbphyyhdz7',
+        extractor_key: 'LinkedIn',
+        formats: [
+          {
+            format_id: '0',
+            ext: 'mp4',
+            tbr: 58.062,
+            protocol: 'https',
+            url: 'https://dms.licdn.com/playlist/vid/v2/D5610AQFKo9M0zqY2_g/mp4-360p-30fp-crf28/0/1704988840280',
+          },
+          {
+            format_id: '2',
+            ext: 'mp4',
+            tbr: 142.65,
+            protocol: 'https',
+            url: 'https://dms.licdn.com/playlist/vid/v2/D5610AQFKo9M0zqY2_g/mp4-720p-30fp-crf28/0/1704988854139',
+          },
+        ],
+      },
+      'https://www.linkedin.com/posts/the-mathworks_2_what-is-mathworks-cloud-center-activity-7151241570371948544-4Gu7',
+      'linkedin'
+    );
+
+    expect(metadata.platform).toBe('linkedin');
+    expect(metadata.title).toBe('What Is MathWorks Cloud Center? | MathWorks');
+    expect(metadata.uploader).toBe('MathWorks');
+    expect(metadata.previewUrl).toBe(
+      'https://dms.licdn.com/playlist/vid/v2/D5610AQFKo9M0zqY2_g/mp4-720p-30fp-crf28/0/1704988854139'
+    );
+    expect(metadata.options.some((o) => o.id === 'best')).toBe(true);
+    expect(metadata.options.some((o) => o.id === 'audio')).toBe(true);
   });
 
   it('populates previewUrl for cookie-free progressive HTTPS MP4 streams (X, Instagram, Direct) and omits it when cookies are required', () => {
@@ -939,6 +1318,158 @@ describe('Express API Endpoints', () => {
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('MEDIA_NOT_FOUND');
+  });
+
+  it('POST /api/info handles Facebook video URLs and returns complete metadata', async () => {
+    vi.spyOn(ytdlpAdapter, 'extractMediaInfo').mockResolvedValue({
+      id: '1195289147628387',
+      title: 'Beast Camp Training Reel',
+      uploader: 'Beast Camp Training',
+      duration: 10,
+      thumbnail: 'https://scontent.xx.fbcdn.net/v/thumb.jpg',
+      extractor_key: 'FacebookReel',
+      formats: [
+        {
+          format_id: 'hd',
+          ext: 'mp4',
+          vcodec: 'avc1.640028',
+          acodec: 'mp4a.40.2',
+          height: 720,
+          url: 'https://video.xx.fbcdn.net/v/hd.mp4',
+          filesize: 2_500_000,
+        },
+      ],
+    });
+
+    const res = await request(app)
+      .post('/api/info')
+      .send({ url: 'https://www.facebook.com/reel/1195289147628387' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      id: '1195289147628387',
+      title: 'Beast Camp Training Reel',
+      uploader: 'Beast Camp Training',
+      platform: 'facebook',
+      extractor: 'FacebookReel',
+    });
+    expect(res.body.data.options.length).toBeGreaterThan(0);
+  });
+
+  it('GET /api/download streams Facebook video successfully with correct Content-Disposition', async () => {
+    const mockStream = new PassThrough();
+    const cleanupSpy = vi.fn();
+
+    vi.spyOn(ytdlpAdapter, 'createMediaDownloadStream').mockImplementation(
+      async () => {
+        setImmediate(() => {
+          mockStream.write(Buffer.from('fake-facebook-binary-payload'));
+          mockStream.end();
+        });
+        return {
+          stream: mockStream,
+          process: { killed: false, exitCode: 0 } as unknown as ChildProcess,
+          contentType: 'video/mp4',
+          extension: 'mp4',
+          cleanup: cleanupSpy,
+        };
+      }
+    );
+
+    const res = await request(app)
+      .get('/api/download')
+      .query({
+        url: 'https://www.facebook.com/reel/1195289147628387',
+        option: 'best',
+        title: 'Facebook Beast Reel',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('video/mp4');
+    expect(res.headers['content-disposition']).toContain(
+      'filename="Facebook-Beast-Reel.mp4"'
+    );
+    expect(Buffer.from(res.body).toString('utf8')).toBe('fake-facebook-binary-payload');
+    expect(cleanupSpy).toHaveBeenCalled();
+  });
+
+  it('POST /api/info handles LinkedIn video URLs and returns complete metadata', async () => {
+    vi.spyOn(ytdlpAdapter, 'extractMediaInfo').mockResolvedValue({
+      id: '7151241570371948544',
+      title: 'What Is MathWorks Cloud Center? | MathWorks',
+      thumbnail: 'https://static.licdn.com/aero-v1/sc/h/c45fy346jw096z9pbphyyhdz7',
+      extractor_key: 'LinkedIn',
+      formats: [
+        {
+          format_id: '2',
+          ext: 'mp4',
+          tbr: 142.65,
+          protocol: 'https',
+          url: 'https://dms.licdn.com/playlist/vid/v2/D5610AQFKo9M0zqY2_g/mp4-720p-30fp-crf28/0/1704988854139',
+        },
+      ],
+    });
+
+    const res = await request(app)
+      .post('/api/info')
+      .send({
+        url: 'https://www.linkedin.com/posts/the-mathworks_2_what-is-mathworks-cloud-center-activity-7151241570371948544-4Gu7',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      id: '7151241570371948544',
+      title: 'What Is MathWorks Cloud Center? | MathWorks',
+      uploader: 'MathWorks',
+      platform: 'linkedin',
+      extractor: 'LinkedIn',
+    });
+    expect(res.body.data.options.length).toBeGreaterThan(0);
+  });
+
+  it('GET /api/download streams LinkedIn video successfully with correct Content-Disposition', async () => {
+    const mockStream = new PassThrough();
+    const cleanupSpy = vi.fn();
+
+    vi.spyOn(ytdlpAdapter, 'createMediaDownloadStream').mockImplementation(
+      async () => {
+        setImmediate(() => {
+          mockStream.write(Buffer.from('fake-linkedin-binary-payload'));
+          mockStream.end();
+        });
+        return {
+          stream: mockStream,
+          process: { killed: false, exitCode: 0 } as unknown as ChildProcess,
+          contentType: 'video/mp4',
+          extension: 'mp4',
+          cleanup: cleanupSpy,
+        };
+      }
+    );
+
+    const res = await request(app)
+      .get('/api/download')
+      .query({
+        url: 'https://www.linkedin.com/posts/the-mathworks_2_what-is-mathworks-cloud-center-activity-7151241570371948544-4Gu7',
+        option: 'best',
+        title: 'MathWorks Cloud Center',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('video/mp4');
+    expect(res.headers['content-disposition']).toContain(
+      'filename="MathWorks-Cloud-Center.mp4"'
+    );
+    expect(Buffer.from(res.body).toString('utf8')).toBe('fake-linkedin-binary-payload');
+    expect(cleanupSpy).toHaveBeenCalled();
+  });
+
+  it('maps LinkedIn "Unable to extract video" stderr to 404 MEDIA_NOT_FOUND', () => {
+    const mapped = ytdlpAdapter.mapExtractorStderrToAppError(
+      'ERROR: [LinkedIn] 6850898786781339649: Unable to extract video; please report this issue'
+    );
+    expect(mapped.statusCode).toBe(404);
+    expect(mapped.code).toBe('MEDIA_NOT_FOUND');
   });
 
   it('terminates child processes cleanly when terminateChildProcess is called', () => {

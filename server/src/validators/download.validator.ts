@@ -14,6 +14,8 @@ const PLATFORM_DOMAINS: Record<Exclude<SupportedPlatform, 'direct'>, string[]> =
   tiktok: ['tiktok.com'],
   instagram: ['instagram.com', 'instagr.am'],
   x: ['x.com', 'twitter.com', 't.co'],
+  facebook: ['facebook.com', 'fb.watch', 'fb.gg'],
+  linkedin: ['linkedin.com', 'lnkd.in'],
   snapchat: ['snapchat.com'],
 };
 
@@ -204,6 +206,104 @@ export interface ValidatedMediaUrl {
 }
 
 /**
+ * Checks whether a URL on Facebook/fb.watch/fb.gg points to a video, Reel, Watch link,
+ * post/permalink with video, or share link rather than a profile, group, or general page.
+ */
+export function isSupportedFacebookVideoUrl(parsedUrl: URL): boolean {
+  const host = parsedUrl.hostname.toLowerCase();
+  const isFbWatchHost = matchesDomainBoundary(host, 'fb.watch');
+  const isFbGgHost = matchesDomainBoundary(host, 'fb.gg');
+  const isFacebookHost = matchesDomainBoundary(host, 'facebook.com');
+
+  if (!isFacebookHost && !isFbWatchHost && !isFbGgHost) {
+    return false;
+  }
+
+  const pathname = parsedUrl.pathname;
+
+  // Short links on fb.watch / fb.gg: /<code> or /v/<code>
+  if (isFbWatchHost || isFbGgHost) {
+    return /^\/(?:v\/)?[A-Za-z0-9_-]+\/?$/i.test(pathname) && pathname.length > 1;
+  }
+
+  // Short share links on facebook.com: /share/v/<code>, /share/r/<code>, /share/p/<code>, /share/<code>
+  if (/^\/share(?:\/[vrp])?\/[A-Za-z0-9_-]+\/?$/i.test(pathname)) {
+    return true;
+  }
+
+  // Reels: /reel/<id>, /reels/<id>, /<user>/reel/<id>
+  if (/^\/(?:[A-Za-z0-9_.-]+\/)?reels?\/[A-Za-z0-9_-]+\/?$/i.test(pathname)) {
+    return true;
+  }
+
+  // Watch: /watch/?v=<id>, /watch/live/?v=<id>, or /watch/<id>/
+  if (/^\/watch(?:\/live)?\/?$/i.test(pathname)) {
+    return Boolean(parsedUrl.searchParams.get('v'));
+  }
+  if (/^\/watch\/[A-Za-z0-9_-]+\/?$/i.test(pathname)) {
+    return true;
+  }
+
+  // Standard video path: /<user>/videos/<id>/ or /<user>/videos/<category>/<id>/ or /videos/<id>/
+  if (/\/(?:videos|video)\/(?:[^/]+\/)?[A-Za-z0-9_-]+\/?$/i.test(pathname)) {
+    return true;
+  }
+
+  // video.php?v=<id> or /video/video.php?v=<id>
+  if (/^\/(?:video\/)?video\.php$/i.test(pathname)) {
+    return Boolean(parsedUrl.searchParams.get('v') || parsedUrl.searchParams.get('id'));
+  }
+
+  // Posts / permalink / story containing video:
+  // /<user>/posts/<id> or /permalink.php?story_fbid=<id> or /story.php?story_fbid=<id>
+  if (/\/(?:posts|activity)\/[A-Za-z0-9_-]+\/?$/i.test(pathname)) {
+    return true;
+  }
+  if (/^\/(?:story|permalink)\.php$/i.test(pathname)) {
+    return Boolean(
+      parsedUrl.searchParams.get('story_fbid') ||
+      parsedUrl.searchParams.get('id') ||
+      parsedUrl.searchParams.get('fbid')
+    );
+  }
+
+  return false;
+}
+
+/**
+ * Checks whether a URL on LinkedIn/lnkd.in points to a public video post, feed update URN,
+ * or lnkd.in short link rather than a profile, company page, job listing, event, or course.
+ */
+export function isSupportedLinkedInVideoUrl(parsedUrl: URL): boolean {
+  const host = parsedUrl.hostname.toLowerCase();
+  const isLnkdInHost = matchesDomainBoundary(host, 'lnkd.in');
+  const isLinkedInHost = matchesDomainBoundary(host, 'linkedin.com');
+
+  if (!isLinkedInHost && !isLnkdInHost) {
+    return false;
+  }
+
+  const pathname = parsedUrl.pathname;
+
+  // Short links on lnkd.in: /<code> or /<prefix>/<code>
+  if (isLnkdInHost) {
+    return /^\/(?:[A-Za-z0-9_-]+\/)?[A-Za-z0-9_-]+\/?$/i.test(pathname) && pathname.length > 1;
+  }
+
+  // Public LinkedIn posts: /posts/<slug>-<id>-<4char>
+  if (/^\/posts\/[^/?#]+-\d+-[A-Za-z0-9_-]+\/?$/i.test(pathname)) {
+    return true;
+  }
+
+  // Shared feed updates: /feed/update/urn:li:(activity|ugcPost|share):<id>
+  if (/^\/feed\/update\/urn:li:(?:activity|ugcPost|share):\d+\/?$/i.test(pathname)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Parses, validates, and classifies a user-supplied media URL.
  * Throws an AppError (400) if the URL is malformed, non-HTTPS, targets an internal host,
  * or does not belong to a supported platform.
@@ -256,7 +356,7 @@ export function validateAndClassifyUrl(rawUrl: string): ValidatedMediaUrl {
   const platform = detectPlatform(parsed);
   if (!platform) {
     throw new AppError(
-      'Unsupported URL or platform. Supported sources: TikTok, Instagram, X (Twitter), Snapchat Spotlight, and direct HTTPS media links (.mp4, .webm, .mov, .mp3, .m4a).',
+      'Unsupported URL or platform. Supported sources: TikTok, Instagram, X (Twitter), Facebook, LinkedIn, Snapchat Spotlight, and direct HTTPS media links (.mp4, .webm, .mov, .mp3, .m4a).',
       400,
       'UNSUPPORTED_PLATFORM'
     );
@@ -272,6 +372,26 @@ export function validateAndClassifyUrl(rawUrl: string): ValidatedMediaUrl {
       400,
       'MISSING_MEDIA_PATH'
     );
+  }
+
+  if (platform === 'facebook') {
+    if (!isSupportedFacebookVideoUrl(parsed)) {
+      throw new AppError(
+        'Unsupported Facebook URL. Only public Facebook videos, Reels, Watch links, and video shares are supported; profiles, groups, and general pages are not supported.',
+        400,
+        'UNSUPPORTED_FACEBOOK_URL'
+      );
+    }
+  }
+
+  if (platform === 'linkedin') {
+    if (!isSupportedLinkedInVideoUrl(parsed)) {
+      throw new AppError(
+        'Unsupported LinkedIn URL. Only public LinkedIn video post and feed update links (linkedin.com/posts/... or linkedin.com/feed/update/urn:li:...) and lnkd.in share links are supported; profiles, company pages, jobs, events, and LinkedIn Learning courses are not supported.',
+        400,
+        'UNSUPPORTED_LINKEDIN_URL'
+      );
+    }
   }
 
   // Enforce strict Snapchat URL format matching yt-dlp's SnapchatSpotlightIE (_VALID_URL)
@@ -318,10 +438,30 @@ export function validateAndClassifyUrl(rawUrl: string): ValidatedMediaUrl {
  */
 function isShortLinkUrl(parsedUrl: URL): boolean {
   const host = parsedUrl.hostname.toLowerCase();
-  if (['vm.tiktok.com', 'vt.tiktok.com', 't.co', 'instagr.am', 't.snapchat.com'].includes(host)) {
+  if (
+    [
+      'vm.tiktok.com',
+      'vt.tiktok.com',
+      't.co',
+      'instagr.am',
+      't.snapchat.com',
+      'fb.watch',
+      'fb.gg',
+      'lnkd.in',
+    ].includes(host) ||
+    matchesDomainBoundary(host, 'fb.watch') ||
+    matchesDomainBoundary(host, 'fb.gg') ||
+    matchesDomainBoundary(host, 'lnkd.in')
+  ) {
     return true;
   }
   if (matchesDomainBoundary(host, 'tiktok.com') && /^\/t\/[A-Za-z0-9_-]+/i.test(parsedUrl.pathname)) {
+    return true;
+  }
+  if (
+    matchesDomainBoundary(host, 'facebook.com') &&
+    /^\/share(?:\/[vrp])?\/[A-Za-z0-9_-]+/i.test(parsedUrl.pathname)
+  ) {
     return true;
   }
   if (matchesDomainBoundary(host, 'snapchat.com')) {
@@ -421,10 +561,36 @@ export async function verifyNetworkSafetyAndRedirects(
         }
         const nextUrl = new URL(location, currentValidated.url).toString();
 
+        // If a Facebook short link redirects to a login or checkpoint page, return a clear authentication error
+        const nextParsed = new URL(nextUrl);
+        if (
+          currentValidated.platform === 'facebook' &&
+          matchesDomainBoundary(nextParsed.hostname, 'facebook.com') &&
+          /^\/(?:login|checkpoint)/i.test(nextParsed.pathname)
+        ) {
+          throw new AppError(
+            'This Facebook video is private or requires login to view and cannot be downloaded.',
+            403,
+            'CONTENT_PRIVATE_OR_RESTRICTED'
+          );
+        }
+
+        // If a LinkedIn short link redirects to an authwall, login, or checkpoint page, return a clear authentication error
+        if (
+          currentValidated.platform === 'linkedin' &&
+          matchesDomainBoundary(nextParsed.hostname, 'linkedin.com') &&
+          /^\/(?:authwall|login|uas\/login|checkpoint)/i.test(nextParsed.pathname)
+        ) {
+          throw new AppError(
+            'This LinkedIn post is private or requires authentication and cannot be downloaded.',
+            403,
+            'CONTENT_PRIVATE_OR_RESTRICTED'
+          );
+        }
+
         // If a TikTok short-link HEAD check redirects to a non-media TikTok page (e.g., /login, /404, or /),
         // still enforce SSRF/host/platform validation on the target host, then keep the original short link
         // so yt-dlp's TikTokVMIE extractor can resolve it directly.
-        const nextParsed = new URL(nextUrl);
         if (
           currentValidated.platform === 'tiktok' &&
           nextParsed.protocol === 'https:' &&
@@ -477,6 +643,21 @@ export async function verifyNetworkSafetyAndRedirects(
           'UNSUPPORTED_SNAPCHAT_URL'
         );
       }
+    }
+  }
+
+  if (currentValidated.platform === 'linkedin') {
+    if (matchesDomainBoundary(currentValidated.parsedUrl.hostname, 'lnkd.in')) {
+      throw new AppError(
+        'LinkedIn short link did not resolve to a public LinkedIn video post URL.',
+        400,
+        'UNSUPPORTED_LINKEDIN_URL'
+      );
+    }
+    if (currentValidated.parsedUrl.hostname.toLowerCase() !== 'www.linkedin.com') {
+      const normalized = new URL(currentValidated.url);
+      normalized.hostname = 'www.linkedin.com';
+      currentValidated = validateAndClassifyUrl(normalized.toString());
     }
   }
 

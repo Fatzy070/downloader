@@ -101,7 +101,12 @@ function selectBrowserPlayablePreviewUrl(
 
     const hasVideo = Boolean(fmt.vcodec && fmt.vcodec !== 'none');
     const hasAudio = Boolean(fmt.acodec && fmt.acodec !== 'none');
-    return hasVideo && hasAudio && Boolean(sanitizeSafeHttpsUrl(fmt.url));
+    const isLinkedInProgressiveMp4 =
+      platform === 'linkedin' && !fmt.vcodec && !fmt.acodec && ext === 'mp4';
+    return (
+      ((hasVideo && hasAudio) || isLinkedInProgressiveMp4) &&
+      Boolean(sanitizeSafeHttpsUrl(fmt.url))
+    );
   });
 
   if (playableCandidates.length > 0) {
@@ -110,7 +115,9 @@ function selectBrowserPlayablePreviewUrl(
       const aH264 = /avc1|h264/i.test(a.vcodec || '') ? 1 : 0;
       const bH264 = /avc1|h264/i.test(b.vcodec || '') ? 1 : 0;
       if (aH264 !== bH264) return bH264 - aH264;
-      return (b.height ?? 0) - (a.height ?? 0);
+      const heightDiff = (b.height ?? 0) - (a.height ?? 0);
+      if (heightDiff !== 0) return heightDiff;
+      return (b.tbr ?? 0) - (a.tbr ?? 0);
     });
 
     return sanitizeSafeHttpsUrl(sorted[0]?.url);
@@ -298,12 +305,22 @@ export function normalizeMediaMetadata(
   })();
   const urlCreatorMatch = parsedOriginal?.pathname.match(/^\/@([^/]+)/);
 
+  const linkedInTitleAuthor =
+    platform === 'linkedin'
+      ? rawTitle.match(/^(.+?)\s+on LinkedIn:/i)?.[1]?.trim() ||
+        rawTitle.match(/\s+\|\s+([^|]+)$/)?.[1]?.trim() ||
+        null
+      : null;
+
   const uploader =
     effectiveInfo.uploader?.trim() ||
     effectiveInfo.creator?.trim() ||
     effectiveInfo.channel?.trim() ||
     (effectiveInfo.uploader_id ? `@${effectiveInfo.uploader_id.replace(/^@/, '')}` : null) ||
-    (urlCreatorMatch ? urlCreatorMatch[1] : null);
+    (urlCreatorMatch ? urlCreatorMatch[1] : null) ||
+    (linkedInTitleAuthor && linkedInTitleAuthor.toLowerCase() !== 'linkedin'
+      ? linkedInTitleAuthor
+      : null);
 
   const duration =
     typeof effectiveInfo.duration === 'number' &&
