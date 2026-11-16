@@ -487,7 +487,7 @@ function isCanonicalTikTokMediaPath(pathname: string): boolean {
 /**
  * Verifies that a hostname resolves only to public IP addresses.
  */
-async function assertSafeDnsResolution(hostname: string): Promise<void> {
+export async function assertSafeDnsResolution(hostname: string): Promise<void> {
   const cleanHost = hostname.replace(/^\[|\]$/g, '');
   if (net.isIP(cleanHost) !== 0) {
     return;

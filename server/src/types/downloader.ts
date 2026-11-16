@@ -92,7 +92,7 @@ export interface RawYtDlpInfo {
 
 export interface DownloadStreamHandle {
   stream: Readable;
-  process: ChildProcess;
+  process?: ChildProcess | null;
   contentType: string;
   extension: string;
   suggestedTitle?: string;

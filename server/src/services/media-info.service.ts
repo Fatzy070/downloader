@@ -1,3 +1,4 @@
+import { extractSnapchatMediaInfo } from '../adapters/snapchat.adapter.js';
 import { extractMediaInfo } from '../adapters/ytdlp.adapter.js';
 import {
   AppError,
@@ -354,7 +355,10 @@ export function normalizeMediaMetadata(
 
 export async function getMediaInfoForUrl(rawUrl: string): Promise<VideoMetadata> {
   const validated = await verifyNetworkSafetyAndRedirects(rawUrl);
-  const rawInfo = await extractMediaInfo(validated.url);
+  const rawInfo =
+    validated.platform === 'snapchat'
+      ? await extractSnapchatMediaInfo(validated.url)
+      : await extractMediaInfo(validated.url);
 
   if (rawInfo.webpage_url) {
     try {

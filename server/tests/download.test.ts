@@ -3,6 +3,7 @@ import dns from 'node:dns/promises';
 import { PassThrough } from 'node:stream';
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as snapchatAdapter from '../src/adapters/snapchat.adapter.js';
 import * as ytdlpAdapter from '../src/adapters/ytdlp.adapter.js';
 import { createApp, parseAllowedOrigins } from '../src/app.js';
 import { normalizeMediaMetadata } from '../src/services/media-info.service.js';
@@ -1470,6 +1471,223 @@ describe('Express API Endpoints', () => {
     );
     expect(mapped.statusCode).toBe(404);
     expect(mapped.code).toBe('MEDIA_NOT_FOUND');
+  });
+
+  it('parses Snapchat App Router Spotlight HTML (JSON-LD VideoObject & OpenGraph fallback) cleanly', () => {
+    expect(snapchatAdapter.parseIsoDurationToSeconds('PT26S')).toBe(26);
+    expect(snapchatAdapter.parseIsoDurationToSeconds('PT1M12.5S')).toBe(72.5);
+    expect(snapchatAdapter.parseIsoDurationToSeconds('PT1H2M3S')).toBe(3723);
+
+    const spotlightHtml = `
+      <!DOCTYPE html><html><head>
+        <meta property="og:title" content="20.7K likes | @blaqass_6lak3 | Spotlight"/>
+        <meta property="og:image" content="https://cf-st.sc-cdn.net/h/thumb.256.IRZXSOY?uc=46"/>
+      </head><body>
+        <script type="application/ld+json">
+          {
+            "@context": "https://schema.org",
+            "@type": "VideoObject",
+            "url": "https://www.snapchat.com/@blaqass_6lak3/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYcHJ2dm52bW14AaHOzA9DAaHOzA8rAAAAAA",
+            "name": "Spotlight Snap",
+            "description": "Spotlight Snap",
+            "thumbnailUrl": "https://cf-st.sc-cdn.net/h/thumb.256.IRZXSOY?uc=46",
+            "creator": { "name": "Blak3", "alternateName": "blaqass_6lak3" },
+            "width": 540,
+            "height": 960,
+            "contentUrl": "https://cf-st.sc-cdn.net/h/video.27.IRZXSOY?mo=abc&uc=46",
+            "duration": "PT26S",
+            "encodingFormat": "video/mp4"
+          }
+        </script>
+      </body></html>
+    `;
+
+    const parsed = snapchatAdapter.parseSnapchatSpotlightHtml(
+      spotlightHtml,
+      'https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYcHJ2dm52bW14AaHOzA9DAaHOzA8rAAAAAA',
+      'W7_EDlXWTBiXAEEniNoMPwAAYcHJ2dm52bW14AaHOzA9DAaHOzA8rAAAAAA'
+    );
+    expect(parsed).not.toBeNull();
+    expect(parsed?.id).toBe('W7_EDlXWTBiXAEEniNoMPwAAYcHJ2dm52bW14AaHOzA9DAaHOzA8rAAAAAA');
+    expect(parsed?.title).toBe('20.7K likes | @blaqass_6lak3 | Spotlight');
+    expect(parsed?.uploader).toBe('blaqass_6lak3');
+    expect(parsed?.duration).toBe(26);
+    expect(parsed?.url).toBe('https://cf-st.sc-cdn.net/h/video.27.IRZXSOY?mo=abc&uc=46');
+    expect(parsed?.formats?.[0]?.ext).toBe('mp4');
+    expect(parsed?.formats?.[0]?.height).toBe(960);
+
+    // OpenGraph fallback when VideoObject is absent
+    const ogOnlyHtml = `
+      <html><head>
+        <meta property="og:title" content="OG Spotlight Title"/>
+        <meta property="og:video" content="https://cf-st.sc-cdn.net/d/sample.27.IRZXSOY?a=1&amp;b=2"/>
+        <meta property="og:video:type" content="video/mp4"/>
+        <meta property="og:video:width" content="540"/>
+        <meta property="og:video:height" content="960"/>
+      </head></html>
+    `;
+    const ogParsed = snapchatAdapter.parseSnapchatSpotlightHtml(
+      ogOnlyHtml,
+      'https://www.snapchat.com/spotlight/testId',
+      'testId'
+    );
+    expect(ogParsed?.url).toBe('https://cf-st.sc-cdn.net/d/sample.27.IRZXSOY?a=1&b=2');
+    expect(ogParsed?.title).toBe('OG Spotlight Title');
+  });
+
+  it('parses Snapchat creator story __NEXT_DATA__ and handles expired or image-only snaps cleanly', () => {
+    const storyHtml = `
+      <html><body><script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+        props: {
+          pageProps: {
+            showSnapExpiredToast: false,
+            userProfile: { publicProfileInfo: { username: 'ppocolee' } },
+            linkPreview: { title: 'View this Snap from Pocolee21 on Snapchat!' },
+            story: {
+              snapList: [
+                {
+                  snapId: { value: 'videoSnap1' },
+                  snapMediaType: 1,
+                  snapUrls: {
+                    mediaUrl: 'https://bolt-gcdn.sc-cdn.net/y/video.1034.IRZXSOY?uc=75',
+                    mediaPreviewUrl: { value: 'https://bolt-gcdn.sc-cdn.net/y/thumb.256.IRZXSOY' },
+                  },
+                },
+                {
+                  snapId: { value: 'imageSnap2' },
+                  snapMediaType: 0,
+                  snapUrls: {
+                    mediaUrl: 'https://bolt-gcdn.sc-cdn.net/y/photo.256.IRZXSOY',
+                  },
+                },
+              ],
+            },
+          },
+        },
+      })}</script></body></html>
+    `;
+
+    const videoInfo = snapchatAdapter.parseSnapchatCreatorStoryHtml(
+      storyHtml,
+      'https://www.snapchat.com/@ppocolee/videoSnap1',
+      'videoSnap1',
+      '@ppocolee'
+    );
+    expect(videoInfo?.uploader).toBe('ppocolee');
+    expect(videoInfo?.url).toBe('https://bolt-gcdn.sc-cdn.net/y/video.1034.IRZXSOY?uc=75');
+
+    expect(() =>
+      snapchatAdapter.parseSnapchatCreatorStoryHtml(
+        storyHtml,
+        'https://www.snapchat.com/@ppocolee/imageSnap2',
+        'imageSnap2',
+        '@ppocolee'
+      )
+    ).toThrowError(/does not contain a downloadable video/);
+
+    expect(() =>
+      snapchatAdapter.parseSnapchatCreatorStoryHtml(
+        storyHtml,
+        'https://www.snapchat.com/@ppocolee/expiredSnap3',
+        'expiredSnap3',
+        '@ppocolee'
+      )
+    ).toThrowError(/expired or could not be found/);
+  });
+
+  it('POST /api/info and GET /api/download handle Snapchat /t/MCVJJ6SB share links cleanly', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(null, {
+        status: 301,
+        headers: {
+          location:
+            'https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYcHJ2dm52bW14AaHOzA9DAaHOzA8rAAAAAA',
+        },
+      })
+    );
+
+    vi.spyOn(snapchatAdapter, 'extractSnapchatMediaInfo').mockResolvedValue({
+      id: 'W7_EDlXWTBiXAEEniNoMPwAAYcHJ2dm52bW14AaHOzA9DAaHOzA8rAAAAAA',
+      title: '20.7K likes | @blaqass_6lak3 | Spotlight',
+      thumbnail: 'https://cf-st.sc-cdn.net/h/thumb.256.IRZXSOY',
+      duration: 26,
+      uploader: 'blaqass_6lak3',
+      extractor: 'SnapchatSpotlight',
+      extractor_key: 'SnapchatSpotlight',
+      webpage_url:
+        'https://www.snapchat.com/@blaqass_6lak3/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYcHJ2dm52bW14AaHOzA9DAaHOzA8rAAAAAA',
+      url: 'https://cf-st.sc-cdn.net/h/bSR9zVNG9f4pWvDPdUydD.27.IRZXSOY?uc=46',
+      ext: 'mp4',
+      width: 540,
+      height: 960,
+      formats: [
+        {
+          format_id: 'mp4',
+          ext: 'mp4',
+          vcodec: 'h264',
+          acodec: 'aac',
+          width: 540,
+          height: 960,
+          protocol: 'https',
+          url: 'https://cf-st.sc-cdn.net/h/bSR9zVNG9f4pWvDPdUydD.27.IRZXSOY?uc=46',
+        },
+      ],
+    });
+
+    const infoRes = await request(app)
+      .post('/api/info')
+      .send({ url: 'https://snapchat.com/t/MCVJJ6SB' });
+
+    expect(infoRes.status).toBe(200);
+    expect(infoRes.body.data).toMatchObject({
+      id: 'W7_EDlXWTBiXAEEniNoMPwAAYcHJ2dm52bW14AaHOzA9DAaHOzA8rAAAAAA',
+      uploader: 'blaqass_6lak3',
+      platform: 'snapchat',
+      extractor: 'SnapchatSpotlight',
+      duration: 26,
+    });
+    expect(infoRes.body.data.previewUrl).toBe(
+      'https://cf-st.sc-cdn.net/h/bSR9zVNG9f4pWvDPdUydD.27.IRZXSOY?uc=46'
+    );
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(null, {
+        status: 301,
+        headers: {
+          location:
+            'https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYcHJ2dm52bW14AaHOzA9DAaHOzA8rAAAAAA',
+        },
+      })
+    );
+    const mockStream = new PassThrough();
+    const cleanupSpy = vi.fn();
+    vi.spyOn(snapchatAdapter, 'createSnapchatDownloadStream').mockImplementation(async () => {
+      setImmediate(() => {
+        mockStream.write(Buffer.from('fake-snapchat-mp4-payload'));
+        mockStream.end();
+      });
+      return {
+        stream: mockStream,
+        process: null,
+        contentType: 'video/mp4',
+        extension: 'mp4',
+        cleanup: cleanupSpy,
+      };
+    });
+
+    const dlRes = await request(app).get('/api/download').query({
+      url: 'https://snapchat.com/t/MCVJJ6SB',
+      option: 'best',
+      title: 'Snapchat Spotlight Clip',
+    });
+
+    expect(dlRes.status).toBe(200);
+    expect(dlRes.headers['content-type']).toContain('video/mp4');
+    expect(dlRes.headers['content-disposition']).toContain(
+      'filename="Snapchat-Spotlight-Clip.mp4"'
+    );
+    expect(Buffer.from(dlRes.body).toString('utf8')).toBe('fake-snapchat-mp4-payload');
+    expect(cleanupSpy).toHaveBeenCalled();
   });
 
   it('terminates child processes cleanly when terminateChildProcess is called', () => {
