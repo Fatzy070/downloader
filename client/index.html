@@ -3,11 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Clean, fast, ad-free personal media downloader for TikTok, Instagram, X (Twitter), and direct media links." />
+    <meta name="description" content="Paste a public TikTok, Instagram, X, Facebook, LinkedIn or Snapchat link, preview the video, and save it. No ads, no redirects." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Fatzy  Personal Universal Video Downloader</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+    />
+    <title>Fatzy · video downloader</title>
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem('fatzy-theme') === 'dark') document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
   </head>
-  <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased selection:bg-indigo-500/20 selection:text-indigo-600 dark:selection:text-indigo-400">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

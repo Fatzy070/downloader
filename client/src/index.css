@@ -3,7 +3,43 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --paper: 255 255 255;
+    --surface: 255 255 255;
+    --ink: 21 21 20;
+    --muted: 107 106 99;
+    --line: 228 228 224;
+    --accent: 214 64 23;
+    --accent-ink: 255 255 255;
+    color-scheme: light;
+  }
+
+  .dark {
+    --paper: 17 17 16;
+    --surface: 26 26 24;
+    --ink: 236 235 230;
+    --muted: 146 144 136;
+    --line: 46 45 42;
+    --accent: 255 106 61;
+    --accent-ink: 20 12 8;
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    @apply bg-paper text-ink antialiased;
+    font-feature-settings: 'ss01', 'tnum' 0;
+  }
+
+  ::selection {
+    background: rgb(var(--accent) / 0.25);
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent));
+    outline-offset: 2px;
   }
 }

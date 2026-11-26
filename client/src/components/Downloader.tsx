@@ -1,12 +1,5 @@
-import React, { useRef, useState } from 'react';
-import {
-  AlertCircle,
-  ArrowRight,
-  ClipboardPaste,
-  Link2,
-  Loader2,
-  X,
-} from 'lucide-react';
+import React, { Fragment, useRef, useState } from 'react';
+import { AlertCircle, ArrowRight, Loader2, X } from 'lucide-react';
 import { useVideoInfo } from '../hooks/useVideoInfo';
 import type { SupportedPlatform } from '../types/downloader';
 import { LoadingState } from './LoadingState';
@@ -48,12 +41,10 @@ export const Downloader: React.FC = () => {
   const [validationError, setValidationError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { videoInfo, isLoading, isError, error, fetchInfo, reset } =
-    useVideoInfo();
+  const { videoInfo, isLoading, isError, error, fetchInfo, reset } = useVideoInfo();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const nextValue = e.target.value;
-    setUrlInput(nextValue);
+    setUrlInput(e.target.value);
     if (validationError) {
       setValidationError(null);
     }
@@ -76,10 +67,9 @@ export const Downloader: React.FC = () => {
     }
 
     try {
-      const text = await navigator.clipboard.readText();
-      const trimmed = text.trim();
-      if (trimmed) {
-        setUrlInput(trimmed);
+      const text = (await navigator.clipboard.readText()).trim();
+      if (text) {
+        setUrlInput(text);
         setValidationError(null);
         reset();
       }
@@ -108,128 +98,108 @@ export const Downloader: React.FC = () => {
     fetchInfo(trimmed);
   };
 
-  const activeErrorMessage =
-    validationError || (isError && error ? error.message : null);
+  const activeErrorMessage = validationError || (isError && error ? error.message : null);
+  const showClear = urlInput.length > 0 || Boolean(videoInfo) || Boolean(activeErrorMessage);
 
   return (
-    <div className="w-full">
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm sm:p-7 dark:border-slate-800 dark:bg-slate-900">
-        <form onSubmit={handleSubmit} noValidate aria-label="Video downloader form">
-          <label
-            htmlFor="media-url-input"
-            className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
-          >
-            Media URL
-          </label>
+    <div className="mt-8 w-full sm:mt-10">
+      <form onSubmit={handleSubmit} noValidate aria-label="Video downloader form">
+        <label htmlFor="media-url-input" className="mb-2 block text-[13px] font-medium text-muted">
+          Media URL
+        </label>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative flex-1">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-                <Link2 className="h-4 w-4" />
-              </div>
-
-              <input
-                ref={inputRef}
-                id="media-url-input"
-                type="url"
-                inputMode="url"
-                autoComplete="off"
-                spellCheck={false}
-                value={urlInput}
-                onChange={handleInputChange}
-                disabled={isLoading}
-                placeholder="https://www.tiktok.com/@user/video/... or Instagram, X, Facebook, LinkedIn, Snapchat link"
-                className="block w-full rounded-xl border border-slate-300 bg-slate-50/70 py-3.5 pl-10 pr-24 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-indigo-400 dark:focus:bg-slate-800"
-              />
-
-              <div className="absolute inset-y-0 right-1.5 flex items-center gap-1">
-                {urlInput.length > 0 || videoInfo || activeErrorMessage ? (
-                  <button
-                    type="button"
-                    onClick={handleClear}
-                    disabled={isLoading}
-                    aria-label="Clear URL and reset"
-                    data-testid="clear-button"
-                    className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-200/70 hover:text-slate-800 disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    <span>Clear</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handlePaste}
-                    disabled={isLoading}
-                    aria-label="Paste URL from clipboard"
-                    data-testid="paste-button"
-                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 shadow-2xs transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                  >
-                    <ClipboardPaste className="h-3.5 w-3.5" />
-                    <span>Paste</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <button
-              type="submit"
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="relative flex-1">
+            <input
+              ref={inputRef}
+              id="media-url-input"
+              type="url"
+              inputMode="url"
+              autoComplete="off"
+              spellCheck={false}
+              value={urlInput}
+              onChange={handleInputChange}
               disabled={isLoading}
-              data-testid="fetch-button"
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Fetching...</span>
-                </>
+              placeholder="https://www.tiktok.com/@user/video/…"
+              className="block h-12 w-full rounded-md border border-line bg-surface pl-3.5 pr-20 font-mono text-[16px] sm:pl-4 sm:text-[14px] text-ink placeholder:text-muted/70 transition-colors focus:border-ink focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+            />
+
+            <div className="absolute inset-y-0 right-2 flex items-center">
+              {showClear ? (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  disabled={isLoading}
+                  aria-label="Clear URL and reset"
+                  data-testid="clear-button"
+                  className="inline-flex h-9 items-center gap-1 rounded px-2 sm:h-8 text-[13px] text-muted transition-colors hover:text-ink disabled:opacity-50"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Clear
+                </button>
               ) : (
-                <>
-                  <span>Fetch Media</span>
-                  <ArrowRight className="h-4 w-4" />
-                </>
+                <button
+                  type="button"
+                  onClick={handlePaste}
+                  disabled={isLoading}
+                  aria-label="Paste URL from clipboard"
+                  data-testid="paste-button"
+                  className="inline-flex h-9 items-center rounded border sm:h-8 border-line px-2.5 text-[13px] text-muted transition-colors hover:border-ink hover:text-ink disabled:opacity-50"
+                >
+                  Paste
+                </button>
               )}
-            </button>
-          </div>
-
-          {/* Supported Platforms Indicator Bar */}
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3.5 dark:border-slate-800/80">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                Supported:
-              </span>
-              {SUPPORTED_PLATFORMS.map((platform) => (
-                <PlatformBadge key={platform} platform={platform} size="sm" />
-              ))}
             </div>
-
-            <span className="text-xs text-slate-400 dark:text-slate-500">
-              Public HTTPS posts & direct media
-            </span>
           </div>
-        </form>
-      </div>
 
-      {/* Error Banner */}
+          <button
+            type="submit"
+            disabled={isLoading}
+            data-testid="fetch-button"
+            className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-md bg-ink px-6 text-[14px] font-medium text-paper transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Fetching
+              </>
+            ) : (
+              <>
+                Fetch
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
+          </button>
+        </div>
+
+        <p className="mt-3 text-[13px] leading-relaxed text-muted">
+          <span className="mr-1.5">Works with</span>
+          {SUPPORTED_PLATFORMS.map((platform, index) => (
+            <Fragment key={platform}>
+              {index > 0 && <span aria-hidden="true">, </span>}
+              <PlatformBadge platform={platform} className="text-ink/80" />
+            </Fragment>
+          ))}
+          .
+        </p>
+      </form>
+
       {activeErrorMessage && (
         <div
           role="alert"
           data-testid="error-message"
-          className="mt-5 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50/90 p-4 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/50 dark:text-rose-200"
+          className="mt-6 flex items-start gap-3 rounded-md border border-accent/40 bg-accent/[0.06] px-4 py-3 text-[14px]"
         >
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" />
-          <div className="flex-1">
-            <p className="font-medium">Could not process media URL</p>
-            <p className="mt-0.5 text-xs leading-relaxed text-rose-700 dark:text-rose-300">
-              {activeErrorMessage}
-            </p>
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+          <div>
+            <p className="font-medium">Couldn’t read that link</p>
+            <p className="mt-0.5 text-muted">{activeErrorMessage}</p>
           </div>
         </div>
       )}
 
-      {/* Loading State */}
       {isLoading && <LoadingState />}
 
-      {/* Video Metadata & Download Card */}
       {!isLoading && videoInfo && <VideoPreview video={videoInfo} />}
     </div>
   );

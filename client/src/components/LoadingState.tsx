@@ -1,38 +1,27 @@
 import React from 'react';
-import { Loader2 } from 'lucide-react';
 
 interface LoadingStateProps {
   message?: string;
 }
 
 export const LoadingState: React.FC<LoadingStateProps> = ({
-  message = 'Inspecting media source and available formats...',
-}) => {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      data-testid="loading-state"
-      className="mt-6 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-    >
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-        <div className="relative flex h-36 w-full shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 sm:w-56">
-          <div className="absolute inset-0 animate-pulse bg-slate-200/60 dark:bg-slate-700/40" />
-          <Loader2 className="relative z-10 h-7 w-7 animate-spin text-indigo-600 dark:text-indigo-400" />
-        </div>
-
-        <div className="flex-1 space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-indigo-600 dark:text-indigo-400">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>{message}</span>
-          </div>
-          <div className="h-5 w-3/4 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800" />
-          <div className="h-4 w-1/2 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800/70" />
-          <div className="pt-2">
-            <div className="h-10 w-44 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
-          </div>
-        </div>
+  message = 'Reading media info and formats…',
+}) => (
+  <div
+    role="status"
+    aria-live="polite"
+    data-testid="loading-state"
+    className="mt-8 grid grid-cols-1 gap-6 sm:mt-10 sm:gap-8 border-t border-line pt-8 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]"
+  >
+    <div className="-mx-4 aspect-[4/5] max-h-[75vh] animate-pulse bg-line/60 sm:mx-0 sm:aspect-video sm:max-h-none sm:rounded-md" />
+    <div className="space-y-4">
+      <p className="font-mono text-[13px] text-muted">{message}</p>
+      <div className="h-6 w-4/5 animate-pulse rounded bg-line/70" />
+      <div className="h-4 w-1/2 animate-pulse rounded bg-line/50" />
+      <div className="space-y-2 pt-4">
+        <div className="h-12 animate-pulse rounded-md bg-line/50" />
+        <div className="h-12 animate-pulse rounded-md bg-line/40" />
       </div>
     </div>
-  );
-};
+  </div>
+);
