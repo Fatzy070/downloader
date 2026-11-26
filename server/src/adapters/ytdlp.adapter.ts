@@ -328,6 +328,24 @@ export function buildFormatSelector(
 }
 
 /**
+ * Format selector for in-browser preview playback. Platforms such as TikTok rank H.265
+ * (bytevc1) streams highest, which many browsers cannot decode (video stays black while
+ * audio plays), so prefer H.264 progressive MP4 with audio before falling back.
+ */
+export function buildBrowserPreviewFormatSelector(): {
+  formatSelector: string;
+  extension: 'mp4';
+  contentType: string;
+} {
+  return {
+    formatSelector:
+      "best[vcodec~='^(avc|h264)'][acodec!=none]/best[ext=mp4][vcodec!*=265][vcodec!*=hev][vcodec!*=bytevc1][acodec!=none]/best[ext=mp4][vcodec!=none][acodec!=none]/best",
+    extension: 'mp4',
+    contentType: 'video/mp4',
+  };
+}
+
+/**
  * Extracts raw JSON metadata for a validated URL using yt-dlp --dump-single-json.
  */
 export async function extractMediaInfo(
@@ -489,6 +507,8 @@ export async function createMediaDownloadStream(
   options?: {
     timeoutMs?: number;
     maxSizeMb?: number;
+    /** Prefer H.264/AAC progressive streams that every browser <video> can decode (used for inline preview). */
+    browserPlayable?: boolean;
   }
 ): Promise<DownloadStreamHandle> {
   const binary = resolveYtDlpBinary();
@@ -500,7 +520,10 @@ export async function createMediaDownloadStream(
     options?.maxSizeMb ?? (Number(process.env.MAX_DOWNLOAD_SIZE_MB) || 200);
   const maxBytes = maxSizeMb * 1024 * 1024;
 
-  const { formatSelector, extension, contentType } = buildFormatSelector(option, platform);
+  const selection = options?.browserPlayable
+    ? buildBrowserPreviewFormatSelector()
+    : buildFormatSelector(option, platform);
+  const { formatSelector, extension, contentType } = selection;
 
   const args: string[] = [
     '--no-playlist',

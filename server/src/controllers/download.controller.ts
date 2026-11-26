@@ -66,6 +66,7 @@ export async function getMediaDownload(
       url: query.url,
       option: query.option ?? 'best',
       title: query.title,
+      inline: query.inline,
     });
 
     cleanupFn = handle.cleanup;
@@ -78,7 +79,11 @@ export async function getMediaDownload(
     res.setHeader('Content-Type', handle.contentType);
     res.setHeader(
       'Content-Disposition',
-      buildContentDisposition(handle.suggestedTitle, handle.extension)
+      buildContentDisposition(
+        handle.suggestedTitle,
+        handle.extension,
+        query.inline ? 'inline' : 'attachment'
+      )
     );
     res.setHeader('Cache-Control', 'no-store, no-transform');
     res.setHeader('X-Content-Type-Options', 'nosniff');
