@@ -1,118 +1,87 @@
 import React, { useEffect, useState } from 'react';
-import { DownloadCloud, Moon, ShieldCheck,  Sun, Zap } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import { Downloader } from '../components/Downloader';
+import { GitHubIcon } from '../components/GitHubIcon';
+
+export const GITHUB_REPO_URL = 'https://github.com/Fatzy070/downloader';
 
 export const Home: React.FC = () => {
   const [darkMode, setDarkMode] = useState<boolean>(() => {
+    // White (light) theme is the default; dark only when the visitor picked it.
     if (typeof window === 'undefined') return false;
-    const saved = window.localStorage.getItem('pulsedl-theme');
-    if (saved === 'dark' || saved === 'light') {
-      return saved === 'dark';
-    }
-    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+    return window.localStorage.getItem('fatzy-theme') === 'dark';
   });
 
   useEffect(() => {
     const root = document.documentElement;
-    if (darkMode) {
-      root.classList.add('dark');
-      window.localStorage.setItem('pulsedl-theme', 'dark');
-    } else {
-      root.classList.remove('dark');
-      window.localStorage.setItem('pulsedl-theme', 'light');
-    }
+    root.classList.toggle('dark', darkMode);
+    window.localStorage.setItem('fatzy-theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
-      {/* Header */}
-      <header className="border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-slate-800/80 dark:bg-slate-900/80">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3.5 sm:px-6">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-xs">
-              <DownloadCloud className="h-5 w-5" />
-            </div>
-            <div>
-              <span className="text-base font-bold tracking-tight text-slate-900 dark:text-white">
-                Fatzy
-              </span>
-              <span className="ml-2 hidden rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 sm:inline-block dark:bg-slate-800 dark:text-slate-400">
-                Personal Utility
-              </span>
-            </div>
-          </div>
+    <div className="flex min-h-screen flex-col bg-paper text-ink">
+      <header className="border-b border-line">
+        <div className="flex h-14 w-full items-center justify-between gap-3 px-4 sm:px-8 lg:px-12">
+          <a href="/" className="flex items-baseline gap-2 rounded-sm">
+            <span className="font-mono text-[15px] font-medium tracking-tight">fatzy</span>
+            <span className="text-[13px] text-muted">/ downloader</span>
+          </a>
 
-          <button
-            type="button"
-            onClick={() => setDarkMode((prev) => !prev)}
-            aria-label={darkMode ? 'Switch to light theme' : 'Switch to dark theme'}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            {darkMode ? (
-              <>
-                <Sun className="h-3.5 w-3.5 text-amber-400" />
-                <span>Light</span>
-              </>
-            ) : (
-              <>
-                <Moon className="h-3.5 w-3.5 text-slate-600" />
-                <span>Dark</span>
-              </>
-            )}
-          </button>
+          <nav className="flex items-center gap-2">
+            <a
+              href={GITHUB_REPO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="github-link"
+              aria-label="View source on GitHub"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-line px-2.5 text-[13px] font-medium transition-colors hover:bg-ink/[0.04] sm:h-8 sm:px-3"
+            >
+              <GitHubIcon className="h-4 w-4" />
+              <span className="hidden min-[360px]:inline">GitHub</span>
+            </a>
+            <button
+              type="button"
+              onClick={() => setDarkMode((prev) => !prev)}
+              aria-label={darkMode ? 'Switch to light theme' : 'Switch to dark theme'}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-line transition-colors hover:bg-ink/[0.04] sm:h-8 sm:w-8"
+            >
+              {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+          </nav>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-10 sm:px-6 sm:py-14">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-white">
-            Universal Media Downloader
-          </h1>
-          <p className="mx-auto mt-2.5 max-w-xl text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-            Paste a public link from TikTok, Instagram, X (Twitter), or a direct HTTPS media file to inspect available formats and stream directly to your device.
-          </p>
-        </div>
+      <main className="w-full flex-1 px-4 pb-16 pt-10 sm:px-8 sm:pb-20 sm:pt-20 lg:px-12">
+        <h1 className="max-w-2xl text-[2.125rem] font-semibold leading-[1.04] tracking-[-0.035em] min-[400px]:text-[2.5rem] sm:text-6xl">
+          Paste a link.
+          <br />
+          <span className="text-muted">Keep the video.</span>
+        </h1>
+        <p className="mt-4 max-w-lg text-[15px] leading-relaxed text-muted sm:mt-5">
+          Public posts from TikTok, Instagram, X, Facebook, LinkedIn and Snapchat, or
+          any direct HTTPS media file. Watch it here first, then save the format you
+          want.
+        </p>
 
         <Downloader />
-
-        {/* Feature Highlights */}
-        <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-slate-200/70 bg-white/60 p-4 dark:border-slate-800/70 dark:bg-slate-900/50">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200">
-              <Zap className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-              <span>Clean TikTok Streams</span>
-            </div>
-            <p className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              Automatically selects unwatermarked original streams when legitimately provided by the source.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-slate-200/70 bg-white/60 p-4 dark:border-slate-800/70 dark:bg-slate-900/50">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200">
-              <Zap className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-              <span>Direct Pipe Streaming</span>
-            </div>
-            <p className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              Streams media directly from the extractor to your browser without third-party redirects or ads.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-slate-200/70 bg-white/60 p-4 dark:border-slate-800/70 dark:bg-slate-900/50">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200">
-              <ShieldCheck className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-              <span>Strict URL Validation</span>
-            </div>
-            <p className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              Enforces HTTPS, domain boundary checks, and private-network protection on every request.
-            </p>
-          </div>
-        </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200/60 py-5 text-center text-xs text-slate-400 dark:border-slate-800/60 dark:text-slate-500">
-        Personal-use media utility powered by yt-dlp &amp; FFmpeg. Respect creator rights and platform terms.
+      <footer className="border-t border-line">
+        <div className="flex w-full flex-col gap-2 px-4 py-6 sm:px-8 lg:px-12 text-[13px] text-muted sm:flex-row sm:items-center sm:justify-between">
+          <p>Public posts only. Files stream through the server and are never stored.</p>
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>yt-dlp + FFmpeg</span>
+            <span aria-hidden="true">·</span>
+            <a
+              href={GITHUB_REPO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-line underline-offset-4 transition-colors hover:text-ink"
+            >
+              Source on GitHub
+            </a>
+          </p>
+        </div>
       </footer>
     </div>
   );

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { CheckCircle2, Download  } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Check, Download } from 'lucide-react';
 import { buildDownloadUrl } from '../services/api';
 import type { DownloadOption } from '../types/downloader';
 
@@ -9,51 +9,41 @@ interface DownloadButtonProps {
   selectedOption: DownloadOption;
 }
 
-export const DownloadButton: React.FC<DownloadButtonProps> = ({
-  url,
-  title,
-  selectedOption,
-}) => {
+export const DownloadButton: React.FC<DownloadButtonProps> = ({ url, title, selectedOption }) => {
   const [downloadTriggered, setDownloadTriggered] = useState(false);
 
-  const downloadHref = buildDownloadUrl({
-    url,
-    option: selectedOption.id,
-    title,
-  });
+  useEffect(() => {
+    if (!downloadTriggered) return;
+    const timer = window.setTimeout(() => setDownloadTriggered(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, [downloadTriggered]);
 
-  const handleClick = () => {
-    setDownloadTriggered(true);
-    window.setTimeout(() => {
-      setDownloadTriggered(false);
-    }, 4000);
-  };
+  const downloadHref = buildDownloadUrl({ url, option: selectedOption.id, title });
 
   return (
-    <div className="space-y-2">
+    <div>
       <a
         href={downloadHref}
-        onClick={handleClick}
+        onClick={() => setDownloadTriggered(true)}
         data-testid="download-button"
-        className="inline-flex w-full items-center justify-center gap-2.5 rounded-xl bg-indigo-600 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 active:scale-[0.99] dark:bg-indigo-500 dark:hover:bg-indigo-400"
+        className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-accent px-5 text-[14px] font-medium text-accent-ink transition-opacity hover:opacity-90"
       >
         <Download className="h-4 w-4 shrink-0" />
-        <span>Download {selectedOption.label}</span>
-   
+        Download {selectedOption.ext.toUpperCase()}
       </a>
 
-      {downloadTriggered && (
-        <p
-          role="status"
-          data-testid="download-started-feedback"
-          className="flex items-center justify-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400"
-        >
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-          <span>
-            Download stream initiated! Your browser will save the media file shortly.
+      <p
+        role="status"
+        aria-live="polite"
+        className="mt-2 flex h-5 items-center justify-center gap-1.5 text-[13px] text-muted"
+      >
+        {downloadTriggered && (
+          <span data-testid="download-started-feedback" className="inline-flex items-center gap-1.5">
+            <Check className="h-3.5 w-3.5" />
+            Download started. Your browser will save the file.
           </span>
-        </p>
-      )}
+        )}
+      </p>
     </div>
   );
 };

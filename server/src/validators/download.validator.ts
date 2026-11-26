@@ -713,6 +713,10 @@ export const downloadQuerySchema = z.object({
     .optional()
     .default('best'),
   title: z.string().trim().max(200).optional(),
+  inline: z
+    .enum(['1', 'true', '0', 'false'])
+    .optional()
+    .transform((val) => val === '1' || val === 'true'),
 });
 
 export type InfoRequestInput = z.infer<typeof infoRequestSchema>;
@@ -720,4 +724,5 @@ export type DownloadQueryInput = {
   url: string;
   option: DownloadOptionId;
   title?: string;
+  inline?: boolean;
 };

@@ -33,7 +33,8 @@ export function sanitizeFilename(
  */
 export function buildContentDisposition(
   rawTitle: string | undefined | null,
-  extension = 'mp4'
+  extension = 'mp4',
+  disposition: 'attachment' | 'inline' = 'attachment'
 ): string {
   const asciiFilename = sanitizeFilename(rawTitle, extension);
   const cleanExt = extension.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'mp4';
@@ -53,5 +54,5 @@ export function buildContentDisposition(
     (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`
   );
 
-  return `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedUtf8}`;
+  return `${disposition}; filename="${asciiFilename}"; filename*=UTF-8''${encodedUtf8}`;
 }

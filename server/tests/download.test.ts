@@ -1307,6 +1307,45 @@ describe('Express API Endpoints', () => {
     expect(cleanupSpy).toHaveBeenCalled();
   });
 
+  it('GET /api/download with inline=1 serves media inline for in-browser preview playback', async () => {
+    const mockStream = new PassThrough();
+
+    vi.spyOn(ytdlpAdapter, 'createMediaDownloadStream').mockImplementation(
+      async () => {
+        setImmediate(() => {
+          mockStream.write(Buffer.from('fake-preview-payload'));
+          mockStream.end();
+        });
+        return {
+          stream: mockStream,
+          process: { killed: false, exitCode: 0 } as unknown as ChildProcess,
+          contentType: 'video/mp4',
+          extension: 'mp4',
+          cleanup: vi.fn(),
+        };
+      }
+    );
+
+    const res = await request(app)
+      .get('/api/download')
+      .query({
+        url: 'https://www.tiktok.com/@creator/video/7123456789',
+        option: 'best',
+        title: 'Preview Clip',
+        inline: '1',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('video/mp4');
+    expect(res.headers['content-disposition']).toMatch(/^inline; filename="Preview-Clip.mp4"/);
+    expect(ytdlpAdapter.createMediaDownloadStream).toHaveBeenCalledWith(
+      'https://www.tiktok.com/@creator/video/7123456789',
+      'best',
+      'tiktok',
+      { browserPlayable: true }
+    );
+  });
+
   it('GET /api/download returns HTTP error if extraction fails before streaming begins', async () => {
     vi.spyOn(ytdlpAdapter, 'createMediaDownloadStream').mockRejectedValue(
       new AppError('Media could not be found.', 404, 'MEDIA_NOT_FOUND')

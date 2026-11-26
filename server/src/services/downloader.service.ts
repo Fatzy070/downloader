@@ -7,6 +7,8 @@ export interface InitiateDownloadParams {
   url: string;
   option: DownloadOptionId;
   title?: string;
+  /** Inline preview: pick a stream the browser can decode. */
+  inline?: boolean;
 }
 
 export async function initiateMediaDownload(
@@ -20,7 +22,8 @@ export async function initiateMediaDownload(
       : await createMediaDownloadStream(
           validated.url,
           params.option,
-          validated.platform
+          validated.platform,
+          params.inline ? { browserPlayable: true } : undefined
         );
 
   return {

@@ -56,8 +56,12 @@ describe('Personal Universal Video Downloader Frontend', () => {
     renderWithQueryClient(<Home />);
 
     expect(
-      screen.getByRole('heading', { name: /Universal Media Downloader/i })
+      screen.getByRole('heading', { level: 1, name: /Paste a link/i })
     ).toBeInTheDocument();
+    expect(screen.getByTestId('github-link')).toHaveAttribute(
+      'href',
+      'https://github.com/Fatzy070/downloader'
+    );
     expect(screen.getByLabelText(/Media URL/i)).toBeInTheDocument();
     expect(screen.getByTestId('fetch-button')).toBeInTheDocument();
     expect(screen.getByTestId('platform-badge-tiktok')).toBeInTheDocument();
@@ -208,8 +212,15 @@ describe('Personal Universal Video Downloader Frontend', () => {
     );
     expect(videoPlayer).toHaveAttribute('controls');
 
-    // Simulate a media playback error and verify graceful fallback to thumbnail + download controls
+    // Direct CDN stream fails, so the player falls back to the server-proxied inline stream
     fireEvent.error(videoPlayer);
+
+    const proxiedPlayer = screen.getByTestId('video-preview-player') as HTMLVideoElement;
+    expect(proxiedPlayer.getAttribute('src')).toContain('/api/download?');
+    expect(proxiedPlayer.getAttribute('src')).toContain('inline=1');
+
+    // Proxied stream also fails: fall back to thumbnail + download controls
+    fireEvent.error(proxiedPlayer);
 
     await waitFor(() => {
       expect(screen.queryByTestId('video-preview-player')).not.toBeInTheDocument();
@@ -218,5 +229,27 @@ describe('Personal Universal Video Downloader Frontend', () => {
       /Preview playback unavailable/i
     );
     expect(screen.getByTestId('download-button')).toBeInTheDocument();
+  });
+
+  it('offers a playable preview for TikTok by streaming through the server when no direct previewUrl exists', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'fetchVideoInfo').mockResolvedValue({
+      ...MOCK_VIDEO_METADATA,
+      previewUrl: null,
+    });
+
+    renderWithQueryClient(<Home />);
+
+    await user.type(screen.getByLabelText(/Media URL/i), MOCK_VIDEO_METADATA.url);
+    await user.click(screen.getByTestId('fetch-button'));
+
+    await user.click(await screen.findByTestId('play-preview-button'));
+
+    const player = screen.getByTestId('video-preview-player') as HTMLVideoElement;
+    const src = player.getAttribute('src') ?? '';
+    expect(src).toContain('/api/download?');
+    expect(src).toContain('option=best');
+    expect(src).toContain('inline=1');
+    expect(src).toContain(encodeURIComponent(MOCK_VIDEO_METADATA.url));
   });
 });

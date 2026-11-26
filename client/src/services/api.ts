@@ -88,6 +88,15 @@ export function buildDownloadUrl(params: {
 }
 
 /**
+ * Builds a same-origin-safe preview stream URL. The server pipes the media through
+ * yt-dlp with an inline Content-Disposition, so the browser can play it in a <video>
+ * element even when the platform CDN blocks hotlinking or needs session cookies.
+ */
+export function buildPreviewStreamUrl(params: { url: string; title?: string }): string {
+  return `${buildDownloadUrl({ url: params.url, option: 'best', title: params.title })}&inline=1`;
+}
+
+/**
  * Checks backend health status via GET /api/health.
  */
 export async function fetchHealthStatus(): Promise<HealthResponse> {

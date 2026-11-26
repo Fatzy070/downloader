@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import type { ZodSchema } from 'zod';
+import type { ZodSchema, ZodType, ZodTypeDef } from 'zod';
 import { AppError } from '../types/downloader.js';
 
 export function validateBody<T>(schema: ZodSchema<T>) {
@@ -16,7 +16,7 @@ export function validateBody<T>(schema: ZodSchema<T>) {
   };
 }
 
-export function validateQuery<T>(schema: ZodSchema<T>) {
+export function validateQuery<T>(schema: ZodType<T, ZodTypeDef, unknown>) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const parsed = schema.safeParse(req.query);
     if (!parsed.success) {
